@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة التحكم الإدارية | مستشار التكيف الجامعي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style> body { font-family: 'Cairo', sans-serif; } </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between">
+
+    <header class="bg-slate-900 border-b border-slate-800 py-4 shadow-md">
+        <div class="container mx-auto px-6 flex justify-between items-center">
+            <div class="flex items-center space-x-3 space-x-reverse">
+                <span class="bg-rose-600 text-white p-2 rounded-xl font-bold text-lg">🔒</span>
+                <div>
+                    <h1 class="font-bold text-lg text-rose-300">لوحة تحكم الأستاذ (خاصة)</h1>
+                    <p class="text-xs text-slate-400">إدارة الإحصائيات، السجلات، وتتبع الزوار</p>
+                </div>
+            </div>
+            <button onclick="logoutAdmin()" id="logout-btn" class="hidden text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300">تسجيل خروج</button>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8 max-w-5xl flex-grow">
+        
+        <!-- شاشة التحقق -->
+        <div id="auth-box" class="bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl max-w-md mx-auto text-center">
+            <span class="text-4xl">🔐</span>
+            <h2 class="text-xl font-bold mt-3 mb-1 text-rose-300">منطقة مقيدة</h2>
+            <p class="text-xs text-slate-400 mb-6">أدخل كلمة المرور الخاصة بلوحة التحكم.</p>
+            <div class="mb-4 text-right">
+                <label class="block text-xs font-semibold text-slate-300 mb-2">كلمة المرور:</label>
+                <input type="password" id="admin-pass" placeholder="أدخل كلمة المرور..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 focus:outline-none focus:border-rose-500">
+            </div>
+            <button onclick="verifyPassword()" class="w-full bg-rose-600 hover:bg-rose-500 py-3 rounded-xl font-semibold transition text-sm">دخول اللوحة</button>
+        </div>
+
+        <!-- لوحة التحكم -->
+        <div id="dashboard-box" class="hidden space-y-6">
+            
+            <!-- بطاقات الإحصائيات العامة -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400">إجمالي المشاركين (المكتملين)</p>
+                        <h3 id="stat-total-users" class="text-2xl font-black text-blue-400 mt-1">0</h3>
+                    </div>
+                    <span class="text-2xl bg-blue-950 p-3 rounded-xl border border-blue-800">👥</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400">إجمالي الزيارات العامة للموقع</p>
+                        <h3 id="stat-total-visits" class="text-2xl font-black text-emerald-400 mt-1">0</h3>
+                    </div>
+                    <span class="text-2xl bg-emerald-950 p-3 rounded-xl border border-emerald-800">👁️</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400">متوسط تقييم المنصة (النجوم)</p>
+                        <h3 id="stat-avg-rating" class="text-2xl font-black text-amber-400 mt-1">0 ⭐</h3>
+                    </div>
+                    <span class="text-2xl bg-amber-950 p-3 rounded-xl border border-amber-800">⭐</span>
+                </div>
+            </div>
+
+            <!-- تبديل العرض (سجلات المشاركين vs سجل الزوار) -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+                    <div class="flex space-x-2 space-x-reverse">
+                        <button onclick="switchTab('quiz')" id="tab-quiz" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white">نتائج المشاركين والأقسام</button>
+                        <button onclick="switchTab('visitors')" id="tab-visitors" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700">سجل الزيارات العامة (بدون تسجيل)</button>
+                    </div>
+                    <span id="total-badge" class="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 rounded-xl font-bold">0 سجلات</span>
+                </div>
+
+                <!-- محتوى الجداول -->
+                <div id="table-container" class="space-y-3 max-h-96 overflow-y-auto mb-6 pr-1"></div>
+
+                <!-- أزرار الإجراءات -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button onclick="exportToExcel()" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2 space-x-reverse">
+                        <span>📥 تحميل التقارير والسجلات كملف Excel</span>
+                    </button>
+                    <button onclick="clearAllRecords()" class="bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800 text-rose-300 px-4 py-3 rounded-xl text-xs font-semibold transition">مسح كافة السجلات</button>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-400">
+        نظام الحماية والتحكم الآمن | مشروع المهارات الحياتية
+    </footer>
+
+    <script>
+        const ADMIN_SECRET_KEY = "admin1234";
+        let currentTab = 'quiz';
+
+        function verifyPassword() {
+            const inputVal = document.getElementById('admin-pass').value;
+            if (inputVal === ADMIN_SECRET_KEY) {
+                document.getElementById('auth-box').classList.add('hidden');
+                document.getElementById('dashboard-box').classList.remove('hidden');
+                document.getElementById('logout-btn').classList.remove('hidden');
+                loadAdminData();
+            } else {
+                alert("كلمة المرور غير صحيحة!");
+                document.getElementById('admin-pass').value = "";
+            }
+        }
+
+        function logoutAdmin() {
+            document.getElementById('dashboard-box').classList.add('hidden');
+            document.getElementById('logout-btn').classList.add('hidden');
+            document.getElementById('auth-box').classList.remove('hidden');
+            document.getElementById('admin-pass').value = "";
+        }
+
+        function switchTab(tab) {
+            currentTab = tab;
+            if (tab === 'quiz') {
+                document.getElementById('tab-quiz').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white";
+                document.getElementById('tab-visitors').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
+            } else {
+                document.getElementById('tab-visitors').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white";
+                document.getElementById('tab-quiz').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
+            }
+            loadAdminData();
+        }
+
+        function loadAdminData() {
+            let quizRecords = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
+            let visitorsLog = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
+
+            document.getElementById('stat-total-users').innerText = quizRecords.length;
+            document.getElementById('stat-total-visits').innerText = visitorsLog.length;
+
+            let avgRating = 0;
+            if (quizRecords.length > 0) {
+                let sumRatings = quizRecords.reduce((acc, rec) => {
+                    let rNum = parseInt(rec.rating) || 5;
+                    return acc + rNum;
+                }, 0);
+                avgRating = (sumRatings / quizRecords.length).toFixed(1);
+            }
+            document.getElementById('stat-avg-rating').innerText = `${avgRating} ⭐`;
+
+            let container = document.getElementById('table-container');
+
+            if (currentTab === 'quiz') {
+                document.getElementById('total-badge').innerText = `${quizRecords.length} مشاركين مكتملين`;
+                if (quizRecords.length === 0) {
+                    container.innerHTML = `<p class='text-sm text-slate-400 text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800'>لا توجد أي نتائج مشاركين مسجلة حتى الآن.</p>`;
+                    return;
+                }
+
+                let html = "";
+                quizRecords.forEach((rec, idx) => {
+                    html += `
+                        <div class='bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2'>
+                            <div>
+                                <p class='font-bold text-sm text-blue-300'>#${idx + 1} - ${rec.name} <span class='text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded ml-2'>${rec.profile}</span></p>
+                                <p class='text-xs text-slate-400 mt-1'>التقييم: ${rec.level}</p>
+                                <p class='text-xs text-amber-400 mt-0.5'>تقييم المنصة: <strong>${rec.rating || 'غير متوفر'}</strong></p>
+                                <p class='text-[10px] text-slate-500 mt-0.5'>${rec.date}</p>
+                            </div>
+                            <div class='flex items-center space-x-3 space-x-reverse self-end sm:self-center'>
+                                <span class='bg-emerald-950 border border-emerald-800 text-emerald-300 px-3 py-1 rounded-lg text-xs font-bold'>${rec.score}</span>
+                                <button onclick="deleteSingleRecord(${idx}, 'quiz')" class='bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 p-2 rounded-lg text-xs transition' title="حذف هذا السجل">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+
+            } else {
+                document.getElementById('total-badge').innerText = `${visitorsLog.length} زيارة مسجلة`;
+                if (visitorsLog.length === 0) {
+                    container.innerHTML = `<p class='text-sm text-slate-400 text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800'>لا توجد زيارات مسجلة حتى الآن.</p>`;
+                    return;
+                }
+
+                let html = "";
+                visitorsLog.forEach((vis, idx) => {
+                    html += `
+                        <div class='bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2'>
+                            <div>
+                                <p class='font-bold text-sm text-emerald-300'>#${idx + 1} - زائر موقع عام</p>
+                                <p class='text-xs text-slate-400 mt-1'>الجهاز/المتصفح: ${vis.device}</p>
+                                <p class='text-[10px] text-slate-500 mt-0.5'>وقت الزيارة: ${vis.time}</p>
+                            </div>
+                            <div class='flex items-center space-x-3 space-x-reverse self-end sm:self-center'>
+                                <button onclick="deleteSingleRecord(${idx}, 'visitor')" class='bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 p-2 rounded-lg text-xs transition' title="حذف هذا السجل">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            }
+        }
+
+        function deleteSingleRecord(index, type) {
+            if (confirm("هل أنت متأكد من حذف هذا السجل بشكل نهائي؟")) {
+                if (type === 'quiz') {
+                    let records = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
+                    records.splice(index, 1);
+                    localStorage.setItem('university_adaptation_students_v3', JSON.stringify(records));
+                } else {
+                    let visitors = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
+                    visitors.splice(index, 1);
+                    localStorage.setItem('site_visitors_log', JSON.stringify(visitors));
+                }
+                loadAdminData();
+            }
+        }
+
+        function clearAllRecords() {
+            if (confirm("تحذير: هل أنت متأكد من مسح كافة السجلات الحالية نهائياً؟")) {
+                if (currentTab === 'quiz') {
+                    localStorage.removeItem('university_adaptation_students_v3');
+                } else {
+                    localStorage.removeItem('site_visitors_log');
+                }
+                loadAdminData();
+            }
+        }
+
+        function exportToExcel() {
+            let quizRecords = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
+            let visitorsLog = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
+
+            let workbook = XLSX.utils.book_new();
+
+            if (quizRecords.length > 0) {
+                let quizData = quizRecords.map((rec, index) => ({
+                    "م": index + 1,
+                    "اسم المشارك": rec.name,
+                    "المجال والتفاصيل": rec.profile,
+                    "نسبة التكيف": rec.score,
+                    "التقييم العام": rec.level,
+                    "تقييم المنصة": rec.rating || 'غير متوفر',
+                    "وقت الاختبار": rec.date
+                }));
+                let ws1 = XLSX.utils.json_to_sheet(quizData);
+                XLSX.utils.book_append_sheet(workbook, ws1, "نتائج المشاركين");
+            }
+
+            if (visitorsLog.length > 0) {
+                let visitorData = visitorsLog.map((vis, index) => ({
+                    "م": index + 1,
+                    "بيانات الجهاز/المتصفح": vis.device,
+                    "وقت الزيارة": vis.time
+                }));
+                let ws2 = XLSX.utils.json_to_sheet(visitorData);
+                XLSX.utils.book_append_sheet(workbook, ws2, "سجل الزوار");
+            }
+
+            if (workbook.SheetNames.length === 0) {
+                alert("لا توجد بيانات كافية لتصديرها حالياً.");
+                return;
+            }
+
+            XLSX.writeFile(workbook, "University_Adaptation_Comprehensive_Report.xlsx");
+        }
+    </script>
+</body>
+</html>
