@@ -97,23 +97,45 @@
     </footer>
 
     <script>
-        const ADMIN_SECRET_KEY = "admin1234";
+        // رابط Google Apps Script (جدول النتائج المشترك) — كلمة المرور محفوظة في السكربت وليس هنا
+        const API_URL = "https://script.google.com/macros/s/AKfycbyr56otkGtZ06tDcDH90G-2WNxeHgPZ_DEoc4gb3yY6E06MIhuZd2_2DETek_fOGkeogQ/exec";
         let currentTab = 'quiz';
+        const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+        let adminPass = "";
+        let cachedData = { results: [], visits: [] };
 
-        function verifyPassword() {
-            const inputVal = document.getElementById('admin-pass').value;
-            if (inputVal === ADMIN_SECRET_KEY) {
+        async function callApi(data) {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(Object.assign({ pass: adminPass }, data))
+            });
+            return res.json();
+        }
+
+        async function refreshData() {
+            const out = await callApi({ action: 'list' });
+            if (!out.ok) throw new Error(out.error || 'error');
+            cachedData = { results: out.results, visits: out.visits };
+            loadAdminData();
+        }
+
+        async function verifyPassword() {
+            adminPass = document.getElementById('admin-pass').value;
+            try {
+                await refreshData();
                 document.getElementById('auth-box').classList.add('hidden');
                 document.getElementById('dashboard-box').classList.remove('hidden');
                 document.getElementById('logout-btn').classList.remove('hidden');
-                loadAdminData();
-            } else {
-                alert("كلمة المرور غير صحيحة!");
+            } catch (e) {
+                alert(e.message === 'wrong_password' ? "كلمة المرور غير صحيحة!" : "تعذّر الاتصال بجدول النتائج، حاول مرة ثانية.");
                 document.getElementById('admin-pass').value = "";
             }
         }
 
         function logoutAdmin() {
+            adminPass = "";
+            cachedData = { results: [], visits: [] };
             document.getElementById('dashboard-box').classList.add('hidden');
             document.getElementById('logout-btn').classList.add('hidden');
             document.getElementById('auth-box').classList.remove('hidden');
@@ -133,8 +155,8 @@
         }
 
         function loadAdminData() {
-            let quizRecords = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
-            let visitorsLog = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
+            let quizRecords = cachedData.results;
+            let visitorsLog = cachedData.visits;
 
             document.getElementById('stat-total-users').innerText = quizRecords.length;
             document.getElementById('stat-total-visits').innerText = visitorsLog.length;
@@ -163,13 +185,13 @@
                     html += `
                         <div class='bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2'>
                             <div>
-                                <p class='font-bold text-sm text-blue-300'>#${idx + 1} - ${rec.name} <span class='text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded ml-2'>${rec.profile}</span></p>
-                                <p class='text-xs text-slate-400 mt-1'>التقييم: ${rec.level}</p>
-                                <p class='text-xs text-amber-400 mt-0.5'>تقييم المنصة: <strong>${rec.rating || 'غير متوفر'}</strong></p>
-                                <p class='text-[10px] text-slate-500 mt-0.5'>${rec.date}</p>
+                                <p class='font-bold text-sm text-blue-300'>#${idx + 1} - ${esc(rec.name)} <span class='text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded ml-2'>${esc(rec.profile)}</span></p>
+                                <p class='text-xs text-slate-400 mt-1'>التقييم: ${esc(rec.level)}</p>
+                                <p class='text-xs text-amber-400 mt-0.5'>تقييم المنصة: <strong>${esc(rec.rating || 'غير متوفر')}</strong></p>
+                                <p class='text-[10px] text-slate-500 mt-0.5'>${esc(rec.date)}</p>
                             </div>
                             <div class='flex items-center space-x-3 space-x-reverse self-end sm:self-center'>
-                                <span class='bg-emerald-950 border border-emerald-800 text-emerald-300 px-3 py-1 rounded-lg text-xs font-bold'>${rec.score}</span>
+                                <span class='bg-emerald-950 border border-emerald-800 text-emerald-300 px-3 py-1 rounded-lg text-xs font-bold'>${esc(rec.score)}</span>
                                 <button onclick="deleteSingleRecord(${idx}, 'quiz')" class='bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 p-2 rounded-lg text-xs transition' title="حذف هذا السجل">🗑️</button>
                             </div>
                         </div>
@@ -190,8 +212,8 @@
                         <div class='bg-slate-950 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2'>
                             <div>
                                 <p class='font-bold text-sm text-emerald-300'>#${idx + 1} - زائر موقع عام</p>
-                                <p class='text-xs text-slate-400 mt-1'>الجهاز/المتصفح: ${vis.device}</p>
-                                <p class='text-[10px] text-slate-500 mt-0.5'>وقت الزيارة: ${vis.time}</p>
+                                <p class='text-xs text-slate-400 mt-1'>الجهاز/المتصفح: ${esc(vis.device)}</p>
+                                <p class='text-[10px] text-slate-500 mt-0.5'>وقت الزيارة: ${esc(vis.time)}</p>
                             </div>
                             <div class='flex items-center space-x-3 space-x-reverse self-end sm:self-center'>
                                 <button onclick="deleteSingleRecord(${idx}, 'visitor')" class='bg-rose-950 hover:bg-rose-900 border border-rose-800 text-rose-300 p-2 rounded-lg text-xs transition' title="حذف هذا السجل">🗑️</button>
@@ -203,35 +225,31 @@
             }
         }
 
-        function deleteSingleRecord(index, type) {
+        async function deleteSingleRecord(index, type) {
             if (confirm("هل أنت متأكد من حذف هذا السجل بشكل نهائي؟")) {
-                if (type === 'quiz') {
-                    let records = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
-                    records.splice(index, 1);
-                    localStorage.setItem('university_adaptation_students_v3', JSON.stringify(records));
-                } else {
-                    let visitors = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
-                    visitors.splice(index, 1);
-                    localStorage.setItem('site_visitors_log', JSON.stringify(visitors));
+                try {
+                    await callApi({ action: 'delete', type: type === 'quiz' ? 'quiz' : 'visitor', index: index });
+                    await refreshData();
+                } catch (e) {
+                    alert("تعذّر الحذف، حاول مرة ثانية.");
                 }
-                loadAdminData();
             }
         }
 
-        function clearAllRecords() {
+        async function clearAllRecords() {
             if (confirm("تحذير: هل أنت متأكد من مسح كافة السجلات الحالية نهائياً؟")) {
-                if (currentTab === 'quiz') {
-                    localStorage.removeItem('university_adaptation_students_v3');
-                } else {
-                    localStorage.removeItem('site_visitors_log');
+                try {
+                    await callApi({ action: 'clear', type: currentTab === 'quiz' ? 'quiz' : 'visitor' });
+                    await refreshData();
+                } catch (e) {
+                    alert("تعذّر المسح، حاول مرة ثانية.");
                 }
-                loadAdminData();
             }
         }
 
         function exportToExcel() {
-            let quizRecords = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
-            let visitorsLog = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
+            let quizRecords = cachedData.results;
+            let visitorsLog = cachedData.visits;
 
             let workbook = XLSX.utils.book_new();
 
