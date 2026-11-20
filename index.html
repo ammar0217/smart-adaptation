@@ -194,14 +194,24 @@
 
     <script>
         // تسجيل الزيارة العامة تلقائياً فور فتح الصفحة (بدون اسم)
+        // رابط Google Apps Script (جدول النتائج المشترك)
+        const API_URL = "https://script.google.com/macros/s/AKfycbyr56otkGtZ06tDcDH90G-2WNxeHgPZ_DEoc4gb3yY6E06MIhuZd2_2DETek_fOGkeogQ/exec";
+
+        function sendToSheet(data) {
+            return fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(data)
+            });
+        }
+
         (function trackVisitor() {
-            let visitors = JSON.parse(localStorage.getItem('site_visitors_log') || '[]');
             const newVisit = {
+                action: 'visit',
                 device: navigator.userAgent.length > 60 ? navigator.userAgent.substring(0, 60) + '...' : navigator.userAgent,
                 time: new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA')
             };
-            visitors.unshift(newVisit);
-            localStorage.setItem('site_visitors_log', JSON.stringify(visitors));
+            sendToSheet(newVisit).catch(() => {});
         })();
 
         let isDarkMode = false;
@@ -480,8 +490,13 @@
             }, 1200);
         }
 
-        function finishProcess() {
+        async function finishProcess() {
+            const btn = document.querySelector('[onclick="finishProcess()"]');
+            btn.disabled = true;
+            btn.innerText = 'جاري الحفظ...';
+
             const studentRecord = {
+                action: 'result',
                 name: currentStudentName,
                 profile: finalProfileDetails,
                 score: finalPercentage + '%',
@@ -490,12 +505,17 @@
                 date: new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA')
             };
 
-            let existingRecords = JSON.parse(localStorage.getItem('university_adaptation_students_v3') || '[]');
-            existingRecords.unshift(studentRecord);
-            localStorage.setItem('university_adaptation_students_v3', JSON.stringify(existingRecords));
-
-            alert(`شكراً لمشاركتك! تم حفظ تقييمك (${selectedRating} نجوم) ونتيجتك بنجاح.`);
-            location.reload();
+            try {
+                const res = await sendToSheet(studentRecord);
+                const out = await res.json();
+                if (!out.ok) throw new Error();
+                alert(`شكراً لمشاركتك! تم حفظ تقييمك (${selectedRating} نجوم) ونتيجتك بنجاح.`);
+                location.reload();
+            } catch (e) {
+                alert('تعذّر حفظ النتيجة، تأكد من اتصالك بالإنترنت وحاول مرة ثانية.');
+                btn.disabled = false;
+                btn.innerText = 'تم ✅';
+            }
         }
     </script>
 </body>
