@@ -172,7 +172,7 @@
 
             <!-- زر تحميل التقرير الكامل -->
             <button id="report-btn" onclick="downloadReport()" class="w-full mb-6 bg-[#c5a059] hover:bg-[#b08d4a] text-white py-3 rounded-xl font-semibold transition text-sm shadow-lg shadow-[#c5a059]/30 flex items-center justify-center gap-2">
-                📄 تحميل تقريرك الكامل (PDF)
+                📄 عرض وتحميل تقريرك الكامل (PDF)
             </button>
 
             <!-- قسم التقييم التفاعلي (نجوم) -->
@@ -678,7 +678,7 @@
         // نبني التقرير بتنسيق داخلي (inline styles) عشان يطلع نفس الشكل في أي جهاز
         function buildReportHTML() {
             const S = {
-                page: "font-family:'Cairo',sans-serif;direction:rtl;text-align:right;color:#1e293b;background:#fff;padding:28px;width:740px;font-size:13px;line-height:1.8;",
+                page: "font-family:'Cairo',sans-serif;direction:rtl;text-align:right;color:#1e293b;background:#fff;padding:20px;max-width:780px;margin:0 auto;font-size:13px;line-height:1.8;",
                 h1: "margin:0;color:#0d5c63;font-size:22px;font-weight:900;",
                 h2: "color:#0d5c63;font-size:16px;font-weight:800;margin:22px 0 10px;padding-bottom:6px;border-bottom:2px solid #c5a059;",
                 box: "border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin-bottom:10px;page-break-inside:avoid;",
@@ -827,39 +827,61 @@
             return h;
         }
 
-        // تحميل مكتبة html2pdf عند الحاجة فقط (أول ضغطة على الزر)
-        function loadPdfLib() {
-            if (window.html2pdf) return Promise.resolve();
-            return new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
-                s.onload = resolve;
-                s.onerror = reject;
-                document.head.appendChild(s);
-            });
-        }
+        // نفتح التقرير في صفحة جديدة ونستخدم "حفظ كـ PDF" في المتصفح نفسه،
+        // لأن المتصفح يكتب العربي صح 100% (مكتبات الـ PDF تخرب المسافات بين الكلمات العربية)
+        function downloadReport() {
+            const safeName = escHtml(currentStudentName.replace(/[\\/:*?"<>|]/g, '').trim() || 'تقرير');
+            const doc = `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تقرير التكيف - ${safeName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>
+    body { margin: 0; background: #f1f5f9; font-family: 'Cairo', sans-serif; }
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; box-sizing: border-box; }
+    .bar { position: sticky; top: 0; background: #0d5c63; color: #fff; padding: 12px 16px; text-align: center; z-index: 9; }
+    .bar button { background: #c5a059; color: #fff; border: 0; border-radius: 10px; padding: 10px 22px; font: 700 15px 'Cairo', sans-serif; cursor: pointer; }
+    .bar p { margin: 6px 0 0; font-size: 12px; opacity: .9; }
+    .sheet { background: #fff; max-width: 820px; margin: 16px auto; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+    @page { size: A4; margin: 12mm 10mm; }
+    @media print {
+        body { background: #fff; }
+        .bar { display: none; }
+        .sheet { margin: 0; box-shadow: none; border-radius: 0; max-width: none; }
+    }
+</style>
+</head>
+<body>
+    <div class="bar">
+        <button onclick="window.print()">💾 حفظ التقرير كـ PDF</button>
+        <p>اضغط الزر، ثم اختر «حفظ كـ PDF» أو «Save as PDF» من خيارات الطابعة</p>
+    </div>
+    <div class="sheet">${buildReportHTML()}</div>
+    <script>
+        (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () {
+            setTimeout(function () { window.print(); }, 400);
+        });
+    <\/script>
+</body>
+</html>`;
 
-        async function downloadReport() {
-            const btn = document.getElementById('report-btn');
-            const original = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = '⏳ جاري تجهيز التقرير...';
-            try {
-                await loadPdfLib();
-                const safeName = currentStudentName.replace(/[\\/:*?"<>|]/g, '').trim() || 'تقرير';
-                await html2pdf().set({
-                    margin: [8, 6, 10, 6],
-                    filename: `تقرير التكيف - ${safeName}.pdf`,
-                    image: { type: 'jpeg', quality: 0.95 },
-                    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
-                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                    pagebreak: { mode: ['css', 'avoid-all'] }
-                }).from(buildReportHTML()).save();
-            } catch (e) {
-                alert('تعذّر تجهيز التقرير، تأكد من اتصالك بالإنترنت وحاول مرة ثانية.');
+            const w = window.open('', '_blank');
+            if (w) {
+                w.document.open();
+                w.document.write(doc);
+                w.document.close();
+            } else {
+                // لو المتصفح منع النافذة الجديدة: نحمّل التقرير كملف HTML يفتح ويُطبع
+                const blob = new Blob([doc], { type: 'text/html;charset=utf-8' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `تقرير التكيف - ${safeName}.html`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
             }
-            btn.disabled = false;
-            btn.innerHTML = original;
         }
 
         function finishAndSave() {
