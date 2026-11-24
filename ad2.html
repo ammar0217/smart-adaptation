@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>لوحة التحكم الإدارية | مستشار التكيف الجامعي</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
     <style> body { font-family: 'Cairo', sans-serif; } </style>
 </head>
@@ -42,6 +42,57 @@
         <div id="dashboard-box" class="hidden space-y-6">
             
             <!-- بطاقات الإحصائيات العامة -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400">متوسط نسبة التكيف</p>
+                        <h3 id="stat-avg-score" class="text-2xl font-black text-teal-300 mt-1">0%</h3>
+                    </div>
+                    <span class="text-2xl bg-teal-950 p-3 rounded-xl border border-teal-800">📊</span>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-xs text-slate-400">نسبة إكمال الاستبيان من الزيارات</p>
+                        <h3 id="stat-completion" class="text-2xl font-black text-violet-300 mt-1">0%</h3>
+                    </div>
+                    <span class="text-2xl bg-violet-950 p-3 rounded-xl border border-violet-800">✅</span>
+                </div>
+            </div>
+
+            <!-- لوحة الرسوم البيانية التفاعلية -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-2 mb-5">
+                    <h2 class="font-bold text-lg text-teal-300">📈 لوحة الإحصائيات التفاعلية</h2>
+                    <span id="detailed-note" class="text-[11px] text-slate-400"></span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                        <p class="text-sm font-bold mb-2 text-slate-200">🏅 توزيع مستويات التكيف</p>
+                        <div class="h-64"><canvas id="ch-levels"></canvas></div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                        <p class="text-sm font-bold mb-2 text-slate-200">📊 توزيع نسب التكيف</p>
+                        <div class="h-64"><canvas id="ch-bins"></canvas></div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 md:col-span-2">
+                        <p class="text-sm font-bold mb-2 text-slate-200">🧭 متوسط محاور التكيف الستة</p>
+                        <div class="h-72"><canvas id="ch-dims"></canvas></div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                        <p class="text-sm font-bold mb-2 text-slate-200">⭐ تقييم المنصة</p>
+                        <div class="h-64"><canvas id="ch-ratings"></canvas></div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4">
+                        <p class="text-sm font-bold mb-2 text-slate-200">👥 المشاركين حسب المجال</p>
+                        <div class="h-64"><canvas id="ch-fields"></canvas></div>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 md:col-span-2">
+                        <p class="text-sm font-bold mb-2 text-slate-200">📝 نسبة الإجابات الإيجابية (دائمًا + غالبًا) لكل سؤال</p>
+                        <div style="height:560px"><canvas id="ch-questions"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div class="bg-slate-900 border border-slate-800 p-4 rounded-2xl shadow-md flex items-center justify-between">
                     <div>
@@ -82,7 +133,7 @@
                 <!-- أزرار الإجراءات -->
                 <div class="flex flex-col sm:flex-row gap-3">
                     <button onclick="exportToExcel()" class="flex-1 bg-emerald-700 hover:bg-emerald-600 text-white py-3 rounded-xl text-xs font-semibold transition flex items-center justify-center space-x-2 space-x-reverse">
-                        <span>📥 تحميل التقارير والسجلات كملف Excel</span>
+                        <span id="excel-btn-text">📥 تحميل التقرير الإحصائي الشامل (Excel ملوّن + رسوم بيانية)</span>
                     </button>
                     <button onclick="clearAllRecords()" class="bg-rose-950/60 hover:bg-rose-900/60 border border-rose-800 text-rose-300 px-4 py-3 rounded-xl text-xs font-semibold transition">مسح كافة السجلات</button>
                 </div>
@@ -171,6 +222,11 @@
             }
             document.getElementById('stat-avg-rating').innerText = `${avgRating} ⭐`;
 
+            const st = computeStats();
+            document.getElementById('stat-avg-score').innerText = st.avgScore + '%';
+            document.getElementById('stat-completion').innerText = st.completion;
+            renderCharts(st);
+
             let container = document.getElementById('table-container');
 
             if (currentTab === 'quiz') {
@@ -247,13 +303,16 @@
             }
         }
 
-        // ===== تقرير Excel الشامل: ملخص + محاور + أسئلة + مشاركين + زيارات =====
+        // ===================== الإحصائيات المشتركة (للرسوم و Excel) =====================
         const ANSWER_SCORES = { "دائمًا": 5, "غالبًا": 4, "أحيانًا": 3, "نادرًا": 2, "أبدًا": 1 };
         const ANSWER_ORDER = ["دائمًا", "غالبًا", "أحيانًا", "نادرًا", "أبدًا"];
+        const C = { teal: '#14b8a6', tealDark: '#0d5c63', gold: '#c5a059', green: '#10b981', amber: '#f59e0b', red: '#f43f5e', sky: '#38bdf8', violet: '#a78bfa', slate: '#94a3b8' };
+        const PALETTE = [C.teal, C.gold, C.sky, C.violet, C.green, C.amber, C.red, C.slate];
 
         const num = v => { const n = parseFloat(String(v).replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
         const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
-        const pct = (part, total) => total ? Math.round(part / total * 1000) / 10 + '%' : '0%';
+        const pctNum = (part, total) => total ? Math.round(part / total * 1000) / 10 : 0;
+        const levelColor = l => /ممتاز/.test(l) ? C.green : /متوسط/.test(l) ? C.gold : C.red;
 
         function countBy(list, keyFn) {
             const m = {};
@@ -261,113 +320,354 @@
             return Object.entries(m).sort((a, b) => b[1] - a[1]);
         }
 
-        function makeSheet(rows, widths) {
-            const ws = XLSX.utils.aoa_to_sheet(rows);
-            ws['!cols'] = widths.map(w => ({ wch: w }));
-            return ws;
-        }
-
-        function exportToExcel() {
-            const results = cachedData.results;
-            const visits = cachedData.visits;
+        function computeStats() {
+            const results = cachedData.results || [];
+            const visits = cachedData.visits || [];
             const extraHeaders = cachedData.extraHeaders || [];
 
-            if (!results.length && !visits.length) {
-                alert("لا توجد بيانات كافية لتصديرها حالياً.");
-                return;
-            }
-
-            // أعمدة المحاور والأسئلة (حسب عناوين جدول Google)
             const dimCols = [], qCols = [];
             extraHeaders.forEach((h, i) => {
                 if (h.startsWith('محور: ')) dimCols.push({ i, name: h.replace('محور: ', '') });
-                else if (/^س\d+: /.test(h)) qCols.push({ i, text: h.replace(/^س\d+: /, ''), n: h.match(/^س(\d+)/)[1] });
+                else if (/^س\d+: /.test(h)) qCols.push({ i, text: h.replace(/^س\d+: /, ''), n: +h.match(/^س(\d+)/)[1] });
             });
             const detailed = results.filter(r => r.extra && r.extra.some(v => v !== ''));
-
             const scores = results.map(r => num(r.score)).filter(v => v !== null);
             const ratings = results.map(r => num(r.rating)).filter(v => v !== null);
             const fieldOf = r => ((r.profile || '').match(/المجال: ([^-(]+)/) || [])[1]?.trim();
             const majorOf = r => ((r.profile || '').match(/التخصص: (.+)$/) || [])[1]?.trim();
-            const today = new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA');
 
-            const wb = XLSX.utils.book_new();
-            wb.Workbook = { Views: [{ RTL: true }] }; // اتجاه الملف من اليمين لليسار
+            const bins = [
+                { label: 'أقل من 40%', test: v => v < 40 },
+                { label: '40% – 59%', test: v => v >= 40 && v < 60 },
+                { label: '60% – 79%', test: v => v >= 60 && v < 80 },
+                { label: '80% – 100%', test: v => v >= 80 }
+            ].map(b => ({ label: b.label, count: scores.filter(b.test).length }));
 
-            // 1) الملخص العام
-            const s = [
-                ["تقرير منصة التكيف الجامعي الذكية — الملخص العام"],
-                ["تاريخ التقرير", today],
-                [],
-                ["📊 الإحصائيات العامة", ""],
-                ["عدد المشاركين المكتملين", results.length],
-                ["عدد الزيارات", visits.length],
-                ["نسبة إكمال الاستبيان من الزيارات", pct(results.length, visits.length)],
-                ["متوسط نسبة التكيف", avg(scores) + '%'],
-                ["أعلى نسبة تكيف", scores.length ? Math.max(...scores) + '%' : '-'],
-                ["أدنى نسبة تكيف", scores.length ? Math.min(...scores) + '%' : '-'],
-                ["متوسط تقييم المنصة (من 5)", avg(ratings)],
-                [],
-                ["🏅 توزيع المستويات", "العدد", "النسبة"],
-                ...countBy(results, r => r.level).map(([k, c]) => [k, c, pct(c, results.length)]),
-                [],
-                ["⭐ توزيع تقييم المنصة", "العدد", "النسبة"],
-                ...[5, 4, 3, 2, 1].map(n => { const c = ratings.filter(r => r === n).length; return [n + ' نجوم', c, pct(c, ratings.length)]; }),
-                [],
-                ["👥 توزيع المجالات", "العدد", "النسبة"],
-                ...countBy(results, fieldOf).map(([k, c]) => [k, c, pct(c, results.length)])
-            ];
-            const majors = countBy(results.filter(majorOf), majorOf);
-            if (majors.length) {
-                s.push([], ["🎓 توزيع التخصصات الجامعية", "العدد", "متوسط التكيف"]);
-                majors.forEach(([k, c]) => {
-                    const sc = results.filter(r => majorOf(r) === k).map(r => num(r.score)).filter(v => v !== null);
-                    s.push([k, c, avg(sc) + '%']);
+            const dims = dimCols.map(col => {
+                const vals = detailed.map(r => num(r.extra[col.i])).filter(v => v !== null);
+                return { name: col.name, avg: avg(vals), max: vals.length ? Math.max(...vals) : 0, min: vals.length ? Math.min(...vals) : 0,
+                    strong: vals.filter(v => v >= 80).length, weak: vals.filter(v => v < 60).length };
+            });
+
+            const qs = qCols.map(col => {
+                const ans = detailed.map(r => r.extra[col.i]).filter(Boolean);
+                const counts = ANSWER_ORDER.map(a => ans.filter(x => x === a).length);
+                return { n: col.n, text: col.text, avg: avg(ans.map(a => ANSWER_SCORES[a]).filter(Boolean)), counts, total: ans.length,
+                    positive: pctNum(counts[0] + counts[1], ans.length) };
+            });
+
+            const majors = countBy(results.filter(majorOf), majorOf).map(([k, c]) => ({
+                name: k, count: c, avg: avg(results.filter(r => majorOf(r) === k).map(r => num(r.score)).filter(v => v !== null))
+            }));
+
+            return {
+                results, visits, detailed, dimCols, qCols, dims, qs, bins, majors,
+                total: results.length, visitsCount: visits.length,
+                completion: pctNum(results.length, visits.length) + '%',
+                avgScore: avg(scores), maxScore: scores.length ? Math.max(...scores) : 0, minScore: scores.length ? Math.min(...scores) : 0,
+                avgRating: avg(ratings),
+                levels: countBy(results, r => r.level),
+                ratingDist: [5, 4, 3, 2, 1].map(n => ({ label: n + ' نجوم', count: ratings.filter(r => r === n).length })),
+                fields: countBy(results, fieldOf),
+                fieldOf, majorOf
+            };
+        }
+
+        // ===================== الرسوم البيانية (Chart.js) =====================
+        let charts = {};
+        if (window.Chart) { Chart.defaults.font.family = 'Cairo'; }
+
+        function chartConfigs(st, theme) {
+            const text = theme === 'light' ? '#1e293b' : '#e2e8f0';
+            const grid = theme === 'light' ? '#e2e8f0' : '#1e293b';
+            const base = (extra) => Object.assign({
+                responsive: theme !== 'light', maintainAspectRatio: false, animation: theme !== 'light',
+                plugins: { legend: { rtl: true, labels: { color: text, font: { size: 12 } } }, tooltip: { rtl: true } }
+            }, extra || {});
+            const axes = (horizontal, maxVal) => ({
+                x: { ticks: { color: text }, grid: { color: grid }, max: horizontal ? maxVal : undefined, beginAtZero: true },
+                y: { ticks: { color: text }, grid: { color: grid }, max: horizontal ? undefined : maxVal, beginAtZero: true }
+            });
+            return {
+                levels: { type: 'doughnut', data: { labels: st.levels.map(l => l[0]), datasets: [{ data: st.levels.map(l => l[1]), backgroundColor: st.levels.map(l => levelColor(l[0])), borderWidth: 0 }] },
+                    options: base({ cutout: '55%' }) },
+                bins: { type: 'bar', data: { labels: st.bins.map(b => b.label), datasets: [{ label: 'عدد المشاركين', data: st.bins.map(b => b.count), backgroundColor: [C.red, C.amber, C.gold, C.green], borderRadius: 8 }] },
+                    options: base({ plugins: { legend: { display: false } }, scales: axes(false) }) },
+                dims: { type: 'bar', data: { labels: st.dims.map(d => d.name), datasets: [{ label: 'متوسط المحور %', data: st.dims.map(d => d.avg), backgroundColor: st.dims.map(d => d.avg >= 80 ? C.green : d.avg >= 60 ? C.gold : C.red), borderRadius: 8 }] },
+                    options: base({ indexAxis: 'y', plugins: { legend: { display: false } }, scales: axes(true, 100) }) },
+                ratings: { type: 'bar', data: { labels: st.ratingDist.map(r => r.label), datasets: [{ label: 'عدد التقييمات', data: st.ratingDist.map(r => r.count), backgroundColor: C.amber, borderRadius: 8 }] },
+                    options: base({ plugins: { legend: { display: false } }, scales: axes(false) }) },
+                fields: { type: 'pie', data: { labels: st.fields.map(f => f[0]), datasets: [{ data: st.fields.map(f => f[1]), backgroundColor: PALETTE, borderWidth: 0 }] },
+                    options: base() },
+                questions: { type: 'bar', data: { labels: st.qs.map(q => 'س' + q.n + ': ' + (q.text.length > 45 ? q.text.slice(0, 45) + '…' : q.text)),
+                        datasets: [{ label: 'نسبة الإيجابية %', data: st.qs.map(q => q.positive), backgroundColor: st.qs.map(q => q.positive >= 70 ? C.green : q.positive >= 40 ? C.gold : C.red), borderRadius: 6 }] },
+                    options: base({ indexAxis: 'y', plugins: { legend: { display: false } }, scales: Object.assign(axes(true, 100), { y: { ticks: { color: text, font: { size: 11 } }, grid: { display: false } } }) }) }
+            };
+        }
+
+        function renderCharts(st) {
+            if (!window.Chart) return;
+            document.getElementById('detailed-note').innerText = st.detailed.length
+                ? `تحليل المحاور والأسئلة مبني على ${st.detailed.length} مشارك لديهم إجابات تفصيلية`
+                : 'تحليل المحاور والأسئلة يظهر بعد أول استبيان جديد بإجابات تفصيلية';
+            const cfgs = chartConfigs(st, 'dark');
+            Object.keys(cfgs).forEach(k => {
+                if (charts[k]) charts[k].destroy();
+                const el = document.getElementById('ch-' + k);
+                if (el) charts[k] = new Chart(el, cfgs[k]);
+            });
+        }
+
+        // رسم نسخة فاتحة من كل رسم كصورة PNG لإضافتها في Excel
+        function chartImage(cfg, w, h) {
+            const canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            const whiteBg = { id: 'whiteBg', beforeDraw: c => { const x = c.ctx; x.save(); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.restore(); } };
+            cfg.plugins = [whiteBg];
+            cfg.options.devicePixelRatio = 2;
+            const ch = new Chart(canvas, cfg);
+            const url = ch.toBase64Image('image/png');
+            ch.destroy();
+            return url;
+        }
+
+        // ===================== تقرير Excel ملوّن (ExcelJS) =====================
+        function loadExcelJS() {
+            if (window.ExcelJS) return Promise.resolve();
+            return new Promise((res, rej) => {
+                const s = document.createElement('script');
+                s.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+                s.onload = res; s.onerror = rej;
+                document.head.appendChild(s);
+            });
+        }
+
+        const X = {
+            teal: 'FF0D5C63', tealLight: 'FFE6F4F1', gold: 'FFC5A059', goldLight: 'FFFBF5E6', white: 'FFFFFFFF',
+            green: 'FFD1FAE5', yellow: 'FFFEF3C7', red: 'FFFEE2E2', greenTxt: 'FF047857', redTxt: 'FFB91C1C', amberTxt: 'FFB45309', gray: 'FFF8FAFC', border: 'FFCBD5E1'
+        };
+        const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+        const thin = { style: 'thin', color: { argb: X.border } };
+        const borders = { top: thin, left: thin, bottom: thin, right: thin };
+
+        function newSheet(wb, name, tab) {
+            return wb.addWorksheet(name, { views: [{ rightToLeft: true, showGridLines: false }], properties: { tabColor: { argb: tab } } });
+        }
+
+        function titleRow(ws, text, cols, row = 1) {
+            ws.mergeCells(row, 1, row, cols);
+            const c = ws.getCell(row, 1);
+            c.value = text;
+            c.font = { name: 'Arial', size: 16, bold: true, color: { argb: X.white } };
+            c.fill = fill(X.teal);
+            c.alignment = { horizontal: 'center', vertical: 'middle' };
+            ws.getRow(row).height = 34;
+        }
+
+        function headerRow(ws, rowNum, values, color = X.teal) {
+            const r = ws.getRow(rowNum);
+            r.values = values;
+            r.height = 26;
+            r.eachCell(c => {
+                c.font = { bold: true, color: { argb: X.white } };
+                c.fill = fill(color);
+                c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                c.border = borders;
+            });
+        }
+
+        function dataRow(ws, rowNum, values, zebra) {
+            const r = ws.getRow(rowNum);
+            r.values = values;
+            r.eachCell({ includeEmpty: true }, c => {
+                c.border = borders;
+                c.alignment = { vertical: 'middle', wrapText: true, horizontal: typeof c.value === 'number' ? 'center' : 'right' };
+                if (zebra) c.fill = fill(X.gray);
+            });
+            return r;
+        }
+
+        function pctScale(ws, ref) {
+            ws.addConditionalFormatting({ ref, rules: [{ type: 'colorScale', priority: 1, cfvo: [{ type: 'num', value: 0 }, { type: 'num', value: 0.6 }, { type: 'num', value: 1 }],
+                color: [{ argb: 'FFF87171' }, { argb: 'FFFDE68A' }, { argb: 'FF34D399' }] }] });
+        }
+
+        function section(ws, row, title, headers, rows, opts = {}) {
+            ws.mergeCells(row, 1, row, headers.length);
+            const t = ws.getCell(row, 1);
+            t.value = title;
+            t.font = { bold: true, size: 13, color: { argb: X.teal } };
+            t.fill = fill(X.goldLight);
+            t.border = { bottom: { style: 'medium', color: { argb: X.gold } } };
+            ws.getRow(row).height = 24;
+            headerRow(ws, row + 1, headers);
+            rows.forEach((vals, i) => {
+                const r = dataRow(ws, row + 2 + i, vals, i % 2 === 1);
+                if (opts.pctCols) opts.pctCols.forEach(ci => { r.getCell(ci).numFmt = '0%'; });
+                if (opts.rowFill) { const f = opts.rowFill(vals); if (f) r.getCell(1).fill = fill(f); }
+            });
+            const end = row + 1 + rows.length;
+            if (opts.pctCols && rows.length) opts.pctCols.forEach(ci => {
+                const col = ws.getColumn(ci).letter;
+                pctScale(ws, `${col}${row + 2}:${col}${end}`);
+            });
+            return end + 2;
+        }
+
+        async function exportToExcel() {
+            const st = computeStats();
+            if (!st.total && !st.visitsCount) { alert("لا توجد بيانات كافية لتصديرها حالياً."); return; }
+
+            const label = document.getElementById('excel-btn-text');
+            const original = label.innerText;
+            label.innerText = '⏳ جاري تجهيز التقرير...';
+            try {
+                await loadExcelJS();
+                const wb = new ExcelJS.Workbook();
+                wb.creator = 'منصة التكيف الجامعي الذكية';
+                wb.created = new Date();
+                const today = new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA');
+                const levelFill = l => /ممتاز/.test(l) ? X.green : /متوسط/.test(l) ? X.yellow : X.red;
+
+                // ---------- 1) لوحة الملخص ----------
+                const s = newSheet(wb, 'الملخص العام', X.teal);
+                s.columns = [{ width: 34 }, { width: 16 }, { width: 16 }, { width: 16 }];
+                titleRow(s, '📊 تقرير منصة التكيف الجامعي الذكية', 4);
+                s.mergeCells(2, 1, 2, 4);
+                s.getCell(2, 1).value = 'الكلية التطبيقية - جامعة الملك فيصل  |  تاريخ التقرير: ' + today;
+                s.getCell(2, 1).alignment = { horizontal: 'center' };
+                s.getCell(2, 1).font = { color: { argb: 'FF64748B' }, italic: true };
+
+                // بطاقات مؤشرات
+                const kpis = [['👥 المشاركين', st.total], ['👁️ الزيارات', st.visitsCount], ['📊 متوسط التكيف', st.avgScore / 100], ['⭐ متوسط التقييم', st.avgRating]];
+                const kRowL = 4, kRowV = 5;
+                kpis.forEach((k, i) => {
+                    const l = s.getCell(kRowL, i + 1), v = s.getCell(kRowV, i + 1);
+                    l.value = k[0]; v.value = k[1];
+                    l.font = { bold: true, color: { argb: X.white } }; l.fill = fill(X.gold);
+                    v.font = { bold: true, size: 20, color: { argb: X.teal } }; v.fill = fill(X.tealLight);
+                    [l, v].forEach(c => { c.alignment = { horizontal: 'center', vertical: 'middle' }; c.border = borders; });
+                    if (i === 2) v.numFmt = '0.0%';
                 });
-            }
-            XLSX.utils.book_append_sheet(wb, makeSheet(s, [38, 22, 14]), "الملخص العام");
+                s.getRow(kRowV).height = 40;
 
-            // 2) تحليل المحاور
-            if (dimCols.length && detailed.length) {
-                const d = [["المحور", "متوسط النسبة", "أعلى", "أدنى", "عدد (نقطة قوة ≥80%)", "عدد (يحتاج تطوير <60%)"]];
-                dimCols.forEach(col => {
-                    const vals = detailed.map(r => num(r.extra[col.i])).filter(v => v !== null);
-                    d.push([col.name, avg(vals) + '%', vals.length ? Math.max(...vals) + '%' : '-', vals.length ? Math.min(...vals) + '%' : '-',
-                        vals.filter(v => v >= 80).length, vals.filter(v => v < 60).length]);
-                });
-                d.push([], ["* مبني على " + detailed.length + " مشارك لديهم إجابات تفصيلية"]);
-                XLSX.utils.book_append_sheet(wb, makeSheet(d, [36, 14, 10, 10, 20, 22]), "تحليل المحاور");
-            }
+                let r = 7;
+                r = section(s, r, '📈 مؤشرات عامة', ['المؤشر', 'القيمة'], [
+                    ['نسبة إكمال الاستبيان من الزيارات', num(st.completion) / 100],
+                    ['أعلى نسبة تكيف', st.maxScore / 100],
+                    ['أدنى نسبة تكيف', st.minScore / 100]
+                ], { pctCols: [2] });
+                r = section(s, r, '🏅 توزيع مستويات التكيف', ['المستوى', 'العدد', 'النسبة'],
+                    st.levels.map(([k, c]) => [k, c, st.total ? c / st.total : 0]), { pctCols: [3], rowFill: v => levelFill(v[0]) });
+                r = section(s, r, '⭐ توزيع تقييم المنصة', ['التقييم', 'العدد', 'النسبة'],
+                    st.ratingDist.map(x => [x.label, x.count, st.total ? x.count / st.total : 0]), { pctCols: [3] });
+                r = section(s, r, '👥 المشاركين حسب المجال', ['المجال', 'العدد', 'النسبة'],
+                    st.fields.map(([k, c]) => [k, c, st.total ? c / st.total : 0]), { pctCols: [3] });
+                if (st.majors.length) r = section(s, r, '🎓 التخصصات الجامعية', ['التخصص', 'العدد', 'متوسط التكيف'],
+                    st.majors.map(m => [m.name, m.count, m.avg / 100]), { pctCols: [3] });
 
-            // 3) تحليل الأسئلة
-            if (qCols.length && detailed.length) {
-                const q = [["#", "العبارة", "متوسط الدرجة (من 5)", ...ANSWER_ORDER, "نسبة الإجابات الإيجابية (دائمًا + غالبًا)"]];
-                qCols.forEach(col => {
-                    const ans = detailed.map(r => r.extra[col.i]).filter(Boolean);
-                    const counts = ANSWER_ORDER.map(a => ans.filter(x => x === a).length);
-                    q.push([col.n, col.text, avg(ans.map(a => ANSWER_SCORES[a] || 0).filter(Boolean)), ...counts, pct(counts[0] + counts[1], ans.length)]);
-                });
-                XLSX.utils.book_append_sheet(wb, makeSheet(q, [5, 70, 18, 9, 9, 9, 9, 9, 30]), "تحليل الأسئلة");
-            }
+                // ---------- 2) الرسوم البيانية ----------
+                if (window.Chart) {
+                    const g = newSheet(wb, 'الرسوم البيانية', X.gold);
+                    g.columns = Array.from({ length: 20 }, () => ({ width: 12 }));
+                    titleRow(g, '📈 الرسوم البيانية للإحصائيات', 18);
+                    const cfgs = chartConfigs(st, 'light');
+                    const place = [
+                        ['levels', 'توزيع مستويات التكيف', 0, 2, 520, 320], ['bins', 'توزيع نسب التكيف', 9, 2, 520, 320],
+                        ['ratings', 'تقييم المنصة', 0, 20, 520, 320], ['fields', 'المشاركين حسب المجال', 9, 20, 520, 320]
+                    ];
+                    if (st.dims.length) place.push(['dims', 'متوسط محاور التكيف', 0, 38, 1060, 360]);
+                    if (st.qs.length) place.push(['questions', 'نسبة الإجابات الإيجابية لكل سؤال', 0, 58, 1060, 640]);
+                    place.forEach(([k, title, col, row, w, h]) => {
+                        const tc = g.getCell(row, col + 1);
+                        tc.value = '■ ' + title; tc.font = { bold: true, size: 12, color: { argb: X.teal } };
+                        const id = wb.addImage({ base64: chartImage(cfgs[k], w, h), extension: 'png' });
+                        g.addImage(id, { tl: { col, row }, ext: { width: w, height: h } });
+                    });
+                }
 
-            // 4) المشاركين بالتفصيل (كل شخص وإجاباته)
-            if (results.length) {
-                const head = ["م", "الاسم", "المجال والتفاصيل", "نسبة التكيف", "المستوى", "تقييم المنصة", "الوقت",
-                    ...dimCols.map(c => c.name), ...qCols.map(c => "س" + c.n + ": " + c.text)];
-                const rows = results.map((r, idx) => [idx + 1, r.name, r.profile, r.score, r.level, r.rating, r.date,
-                    ...dimCols.map(c => (r.extra || [])[c.i] || ''), ...qCols.map(c => (r.extra || [])[c.i] || '')]);
-                XLSX.utils.book_append_sheet(wb, makeSheet([head, ...rows],
-                    [5, 20, 40, 11, 28, 14, 24, ...dimCols.map(() => 16), ...qCols.map(() => 22)]), "المشاركين وإجاباتهم");
-            }
+                // ---------- 3) تحليل المحاور ----------
+                if (st.dims.length && st.detailed.length) {
+                    const d = newSheet(wb, 'تحليل المحاور', 'FF10B981');
+                    d.columns = [{ width: 36 }, { width: 15 }, { width: 11 }, { width: 11 }, { width: 18 }, { width: 20 }];
+                    titleRow(d, '🧭 تحليل محاور التكيف الستة', 6);
+                    section(d, 3, `مبني على ${st.detailed.length} مشارك لديهم إجابات تفصيلية`,
+                        ['المحور', 'متوسط النسبة', 'أعلى', 'أدنى', 'نقطة قوة (≥80%)', 'يحتاج تطوير (<60%)'],
+                        st.dims.map(x => [x.name, x.avg / 100, x.max / 100, x.min / 100, x.strong, x.weak]), { pctCols: [2, 3, 4] });
+                }
 
-            // 5) الزيارات
-            if (visits.length) {
-                const v = [["م", "وقت الزيارة", "الجهاز/المتصفح"], ...visits.map((x, i) => [i + 1, x.time, x.device])];
-                XLSX.utils.book_append_sheet(wb, makeSheet(v, [5, 26, 70]), "سجل الزيارات");
-            }
+                // ---------- 4) تحليل الأسئلة ----------
+                if (st.qs.length && st.detailed.length) {
+                    const q = newSheet(wb, 'تحليل الأسئلة', 'FF38BDF8');
+                    q.columns = [{ width: 6 }, { width: 62 }, { width: 14 }, ...ANSWER_ORDER.map(() => ({ width: 10 })), { width: 16 }];
+                    titleRow(q, '📝 تحليل إجابات الأسئلة', 9);
+                    headerRow(q, 3, ['#', 'العبارة', 'متوسط (من 5)', ...ANSWER_ORDER, 'نسبة الإيجابية']);
+                    const ansColors = ['FF34D399', 'FFA7F3D0', 'FFFDE68A', 'FFFDBA74', 'FFF87171'];
+                    ANSWER_ORDER.forEach((a, i) => { q.getCell(3, 4 + i).fill = fill(ansColors[i]); q.getCell(3, 4 + i).font = { bold: true, color: { argb: 'FF1E293B' } }; });
+                    st.qs.forEach((x, i) => {
+                        const row = dataRow(q, 4 + i, [x.n, x.text, x.avg, ...x.counts, x.positive / 100], i % 2 === 1);
+                        row.getCell(9).numFmt = '0%';
+                        row.getCell(3).numFmt = '0.0';
+                    });
+                    const end = 3 + st.qs.length;
+                    pctScale(q, `I4:I${end}`);
+                    q.addConditionalFormatting({ ref: `C4:C${end}`, rules: [{ type: 'colorScale', priority: 2, cfvo: [{ type: 'num', value: 1 }, { type: 'num', value: 3 }, { type: 'num', value: 5 }],
+                        color: [{ argb: 'FFF87171' }, { argb: 'FFFDE68A' }, { argb: 'FF34D399' }] }] });
+                    q.views = [{ rightToLeft: true, showGridLines: false, state: 'frozen', ySplit: 3 }];
+                }
 
-            const d = new Date();
-            XLSX.writeFile(wb, `تقرير مستشار التكيف ${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}.xlsx`);
+                // ---------- 5) المشاركين وإجاباتهم ----------
+                if (st.total) {
+                    const p = newSheet(wb, 'المشاركين وإجاباتهم', 'FFA78BFA');
+                    const head = ['م', 'الاسم', 'المجال والتفاصيل', 'نسبة التكيف', 'المستوى', 'تقييم المنصة', 'الوقت',
+                        ...st.dimCols.map(c => c.name), ...st.qCols.map(c => 'س' + c.n + ': ' + c.text)];
+                    p.columns = [6, 20, 38, 12, 28, 14, 24, ...st.dimCols.map(() => 16), ...st.qCols.map(() => 24)].map(w => ({ width: w }));
+                    headerRow(p, 1, head);
+                    st.dimCols.forEach((c, i) => { p.getCell(1, 8 + i).fill = fill('FF0F766E'); });
+                    st.qCols.forEach((c, i) => { p.getCell(1, 8 + st.dimCols.length + i).fill = fill('FF475569'); });
+                    p.getRow(1).height = 60;
+                    const ansFill = { "دائمًا": X.green, "غالبًا": X.green, "أحيانًا": X.yellow, "نادرًا": X.red, "أبدًا": X.red };
+                    st.results.forEach((rec, idx) => {
+                        const ex = rec.extra || [];
+                        const vals = [idx + 1, rec.name, rec.profile, (num(rec.score) ?? 0) / 100, rec.level, num(rec.rating) ?? '', rec.date,
+                            ...st.dimCols.map(c => { const v = num(ex[c.i]); return v === null ? '' : v / 100; }),
+                            ...st.qCols.map(c => ex[c.i] || '')];
+                        const row = dataRow(p, idx + 2, vals, false);
+                        row.getCell(4).numFmt = '0%';
+                        row.getCell(5).fill = fill(levelFill(rec.level));
+                        st.dimCols.forEach((c, i) => { row.getCell(8 + i).numFmt = '0%'; });
+                        st.qCols.forEach((c, i) => { const cell = row.getCell(8 + st.dimCols.length + i); if (ansFill[cell.value]) cell.fill = fill(ansFill[cell.value]); cell.alignment = { horizontal: 'center', vertical: 'middle' }; });
+                    });
+                    const last = st.total + 1;
+                    pctScale(p, `D2:D${last}`);
+                    st.dimCols.forEach((c, i) => { const col = p.getColumn(8 + i).letter; pctScale(p, `${col}2:${col}${last}`); });
+                    p.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: head.length } };
+                    p.views = [{ rightToLeft: true, state: 'frozen', xSplit: 2, ySplit: 1 }];
+                }
+
+                // ---------- 6) الزيارات ----------
+                if (st.visitsCount) {
+                    const v = newSheet(wb, 'سجل الزيارات', 'FF94A3B8');
+                    v.columns = [{ width: 6 }, { width: 28 }, { width: 70 }];
+                    headerRow(v, 1, ['م', 'وقت الزيارة', 'الجهاز/المتصفح']);
+                    st.visits.forEach((x, i) => dataRow(v, i + 2, [i + 1, x.time, x.device], i % 2 === 1));
+                    v.autoFilter = 'A1:C1';
+                    v.views = [{ rightToLeft: true, state: 'frozen', ySplit: 1 }];
+                }
+
+                const buf = await wb.xlsx.writeBuffer();
+                const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const dt = new Date();
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = `تقرير مستشار التكيف ${dt.getFullYear()}-${dt.getMonth() + 1}-${dt.getDate()}.xlsx`;
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            } catch (e) {
+                console.error(e);
+                alert('تعذّر تجهيز ملف Excel، تأكد من اتصالك بالإنترنت وحاول مرة ثانية.');
+            }
+            label.innerText = original;
         }
     </script>
 </body>
