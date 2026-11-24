@@ -6,13 +6,12 @@
     <title>منصة التكيف الجامعي الذكية</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        // الوضع الداكن يتحكم فيه زر الموقع (وأول مرة يتبع إعداد الجهاز)
+        // الوضع الافتراضي فاتح، والداكن فقط إذا اختاره المستخدم بالزر (ويتذكره الموقع)
         tailwind.config = { darkMode: 'class' };
         (function () {
             let saved = null;
             try { saved = localStorage.getItem('theme'); } catch (e) {}
-            const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (dark) document.documentElement.classList.add('dark');
+            if (saved === 'dark') document.documentElement.classList.add('dark');
         })();
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet">
