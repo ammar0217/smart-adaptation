@@ -435,6 +435,240 @@
             }
         }
 
+        // ===== محاور المقياس: كل محور يجمع أسئلة متقاربة (أرقام الأسئلة تبدأ من 0) =====
+        const dimensions = [
+            {
+                icon: "⏰", name: "إدارة الوقت والانضباط", qs: [1, 2, 8, 14],
+                strong: "تنظيمك لوقتك نقطة قوة واضحة، وهذا أساس كل نجاح. شارك طريقتك مع زملائك.",
+                mid: [
+                    "قسّم يومك إلى فترات تركيز (25 دقيقة عمل + 5 دقائق راحة) بأسلوب «بومودورو».",
+                    "اكتب كل مساء أهم 3 مهام لليوم التالي، وابدأ بأصعبها صباحاً."
+                ],
+                weak: [
+                    "ابدأ بتقويم أسبوعي بسيط على جوالك وسجّل فيه كل موعد وتسليم فور معرفته.",
+                    "قاعدة الدقيقتين: أي مهمة تأخذ أقل من دقيقتين أنجزها فوراً ولا تؤجلها.",
+                    "حدّد موعداً نهائياً شخصياً قبل الموعد الرسمي بيومين لتتجنب ضغط اللحظة الأخيرة."
+                ]
+            },
+            {
+                icon: "📚", name: "المهارات الأكاديمية والتعلم الذاتي", qs: [3, 11, 18],
+                strong: "لديك قدرة عالية على التعلم الذاتي، استثمرها في دورات وشهادات احترافية في مجالك.",
+                mid: [
+                    "خصّص ساعتين أسبوعياً لمصدر تعلم إضافي (دورة، كتاب، قناة تعليمية) في مجالك.",
+                    "اقرأ وصف المقرر أو المهمة ومعايير التقييم من البداية حتى تعرف أين تركز جهدك."
+                ],
+                weak: [
+                    "اسأل المحاضر أو المسؤول مباشرة: «ما المطلوب بالضبط وكيف سيُقيَّم؟» — لا حرج في السؤال.",
+                    "جرّب منصات مجانية مثل «رواق» و«إدراك» و«دروب» لتقوية الأساسيات بالعربي.",
+                    "لخّص ما تتعلمه بكلماتك في نهاية كل يوم، فالتلخيص يضاعف الفهم والحفظ."
+                ]
+            },
+            {
+                icon: "🤝", name: "العلاقات والتواصل", qs: [4, 5, 10],
+                strong: "مهاراتك الاجتماعية ممتازة، أنت مؤهل لتكون قائداً أو مرشداً لزملائك الجدد.",
+                mid: [
+                    "شارك في نادٍ طلابي أو فعالية واحدة على الأقل شهرياً لتوسيع دائرة معارفك.",
+                    "كوّن مجموعة مذاكرة أو عمل صغيرة (3–4 أشخاص) لتبادل الأفكار والدعم."
+                ],
+                weak: [
+                    "ابدأ بخطوة صغيرة: تعرّف على زميل واحد جديد هذا الأسبوع واسأله عن تجربته.",
+                    "طلب المساعدة قوة وليس ضعفاً؛ ساعات المكتب والإرشاد الأكاديمي وُجدت لأجلك.",
+                    "احضر فعالية واحدة فقط هذا الشهر حتى لو كنت متردداً، فالبداية أصعب جزء."
+                ]
+            },
+            {
+                icon: "💪", name: "المرونة النفسية وإدارة الضغوط", qs: [6, 9, 13, 16],
+                strong: "تتعامل مع الضغوط والتحديات بمرونة عالية، وهذه مهارة يبحث عنها كل صاحب عمل.",
+                mid: [
+                    "عند الضغط جرّب تمرين التنفس 4-4-4: شهيق 4 ثوانٍ، حبس 4، زفير 4.",
+                    "انظر للإخفاق كمعلومة وليس حكماً عليك: اسأل نفسك «ماذا تعلمت؟ وماذا سأغير؟»."
+                ],
+                weak: [
+                    "النوم الكافي (7–8 ساعات) والحركة اليومية ولو 20 دقيقة مشياً يخففان التوتر بشكل ملحوظ.",
+                    "اكتب ما يقلقك على ورقة ثم قسّمه: ما أستطيع التحكم فيه، وما لا أستطيع — وركّز على الأول.",
+                    "إذا استمر الضغط فترة طويلة، تواصل مع مركز الإرشاد والدعم النفسي في جهتك؛ خدماته سرية ومجانية."
+                ]
+            },
+            {
+                icon: "🎯", name: "الثقة والأهداف والدافعية", qs: [7, 15, 19],
+                strong: "أهدافك واضحة وثقتك بنفسك عالية، ارفع سقف طموحك وضع هدفاً أكبر لهذا العام.",
+                mid: [
+                    "اكتب هدفاً واحداً لهذا الفصل بصيغة SMART: محدد، قابل للقياس، واقعي، ومرتبط بوقت.",
+                    "احتفل بإنجازاتك الصغيرة، فهي وقود الدافعية للاستمرار."
+                ],
+                weak: [
+                    "ابدأ بهدف صغير جداً لهذا الأسبوع وحققه، فالنجاحات الصغيرة تبني الثقة الكبيرة.",
+                    "اكتب 3 أشياء أنجزتها أو تتقنها، وارجع لها كلما شككت في قدراتك.",
+                    "لا تقارن بدايتك بمنتصف طريق غيرك؛ قارن نفسك بنفسك قبل شهر."
+                ]
+            },
+            {
+                icon: "🏛️", name: "الانتماء والتوافق مع البيئة", qs: [0, 12, 17],
+                strong: "تشعر بانتماء قوي لبيئتك وتوافق مع مجالك، وهذا يمنحك استقراراً واستمرارية.",
+                mid: [
+                    "تعرّف أكثر على الخدمات والأنشطة المتاحة في جهتك، ففيها فرص قد لا تعرفها.",
+                    "اربط ما تدرسه أو تعمل عليه بهدف شخصي يهمك ليصبح له معنى أعمق."
+                ],
+                weak: [
+                    "الشعور بالغربة في البداية طبيعي جداً ويقل مع الوقت والمشاركة.",
+                    "إذا شعرت أن مجالك لا يناسبك، استشر المرشد الأكاديمي أو المهني قبل أي قرار.",
+                    "ابحث عن ركن تحبه في بيئتك (مكتبة، نادٍ، مجموعة) واجعله مكانك المفضل."
+                ]
+            }
+        ];
+
+        // نصيحة سريعة لكل سؤال، تظهر إذا كانت الإجابة «نادرًا» أو «أبدًا»
+        const questionTips = [
+            "اقضِ وقتاً أطول في المرافق المشتركة وتعرّف على المكان والناس تدريجياً.",
+            "استخدم قائمة مهام واحدة تجمع التزاماتك الشخصية والدراسية أو العملية معاً.",
+            "جهّز أغراضك من الليلة السابقة واضبط منبهاً قبل كل موعد بـ15 دقيقة.",
+            "اطلب نموذجاً أو مثالاً لعمل سابق ممتاز لتفهم المستوى المطلوب.",
+            "ابدأ المحادثة بسؤال بسيط عن الدرس أو العمل، فهو أسهل مدخل للتعارف.",
+            "حدد شخصاً واحداً تثق به ترجع له عند أي صعوبة.",
+            "بعد أي إخفاق، خذ يوماً للراحة ثم ضع خطة صغيرة للمحاولة القادمة.",
+            "تذكّر موقفاً نجحت فيه سابقاً، فأنت قادر على تكراره.",
+            "احجز في جدولك وقتاً ثابتاً للمذاكرة أو التحضير كأنه موعد لا يُلغى.",
+            "عند الضغط، رتّب المهام حسب الأهمية والإلحاح وابدأ بواحدة فقط.",
+            "اختر نشاطاً جماعياً قريباً من اهتماماتك ليكون الانضمام أسهل.",
+            "ابحث عن مقطع شرح قصير لأي موضوع صعب قبل أن تتراكم الأسئلة.",
+            "تحدّث مع شخص سبقك في مجالك لتعرف جوانب قد تحبها فيه.",
+            "عند أي تغيير، ركّز على الخطوة التالية فقط بدل التفكير في كل شيء.",
+            "قسّم المشروع الكبير إلى أجزاء صغيرة لكل جزء موعد تسليم خاص.",
+            "اكتب هدفاً واحداً لهذا الشهر وعلّقه في مكان تراه يومياً.",
+            "استبدل «هذه مشكلة» بـ«هذا تحدٍ أستطيع حله»، فالصياغة تغيّر الشعور.",
+            "شارك في مبادرة أو عمل تطوعي داخل جهتك لتشعر أنك جزء منها.",
+            "ابدأ بمصادر موثوقة ثابتة (كتاب المقرر، توثيق رسمي) قبل البحث العشوائي.",
+            "راجع تقدمك كل أسبوع واكتب شيئاً واحداً تحسّن فيه."
+        ];
+
+        const motivationalLines = {
+            high: "أنت نموذج للتكيف الناجح، والخطوة القادمة أن تكون مصدر إلهام لغيرك. 🌟",
+            mid: "أنت على الطريق الصحيح، وبخطوات صغيرة منتظمة ستصل للتميز قريباً. 🚀",
+            low: "كل بداية صعبة، والمهم أنك بدأت بتقييم نفسك بصدق. خطوة صغيرة كل يوم تصنع الفرق. 🌱"
+        };
+
+        function escHtml(s) {
+            return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        }
+
+        function levelColor(p) {
+            if (p >= 80) return { bar: 'bg-emerald-500', text: 'text-emerald-600', label: 'نقطة قوة' };
+            if (p >= 60) return { bar: 'bg-[#c5a059]', text: 'text-[#a8873f]', label: 'جيد' };
+            return { bar: 'bg-amber-500', text: 'text-amber-600', label: 'يحتاج تطوير' };
+        }
+
+        function buildAdvice() {
+            // 1) حساب نسبة كل محور
+            const scored = dimensions.map(d => {
+                const sum = d.qs.reduce((a, i) => a + (userAnswers[i] || 0), 0);
+                return Object.assign({}, d, { pct: Math.round(sum / (d.qs.length * 5) * 100) });
+            });
+            const sorted = scored.slice().sort((a, b) => b.pct - a.pct);
+            const best = sorted[0];
+            const focus = sorted.filter(d => d.pct < 80).reverse().slice(0, 2); // أضعف محورين
+
+            const overall = finalPercentage >= 80 ? 'high' : finalPercentage >= 60 ? 'mid' : 'low';
+            const overallColor = levelColor(finalPercentage);
+            const firstName = escHtml(currentStudentName.split(' ')[0]);
+
+            // 2) الملخص العام
+            let html = `
+                <div class='text-center'>
+                    <p class='text-3xl font-black ${overallColor.text}'>${finalPercentage}%</p>
+                    <p class='font-bold mt-1'>${escHtml(finalLevel)}</p>
+                    <p class='text-xs text-slate-500 mt-2'>${firstName}، ${motivationalLines[overall]}</p>
+                </div>
+            `;
+
+            // 3) أشرطة المحاور
+            html += `<div class='pt-2'><p class='font-bold mb-3'>📊 تحليل محاور التكيف:</p><div class='space-y-3'>`;
+            scored.forEach(d => {
+                const c = levelColor(d.pct);
+                html += `
+                    <div>
+                        <div class='flex justify-between text-xs mb-1'>
+                            <span class='font-semibold'>${d.icon} ${d.name}</span>
+                            <span class='${c.text} font-bold'>${d.pct}% · ${c.label}</span>
+                        </div>
+                        <div class='w-full bg-slate-200 h-2 rounded-full overflow-hidden'>
+                            <div class='${c.bar} h-full rounded-full' style='width:${d.pct}%'></div>
+                        </div>
+                    </div>`;
+            });
+            html += `</div></div>`;
+
+            // 4) أبرز نقطة قوة
+            html += `
+                <div class='p-3 rounded-xl bg-emerald-50 border border-emerald-200'>
+                    <p class='font-bold text-emerald-700 mb-1'>🏆 أبرز نقاط قوتك: ${best.icon} ${best.name}</p>
+                    <p class='text-slate-600'>${best.strong}</p>
+                </div>
+            `;
+
+            // 5) نصائح المحاور التي تحتاج تطوير
+            if (focus.length) {
+                html += `<div><p class='font-bold mb-2'>💡 نصائح مخصصة لك:</p>`;
+                focus.forEach(d => {
+                    const tips = d.pct < 60 ? d.weak : d.mid;
+                    html += `
+                        <div class='mb-3 p-3 rounded-xl bg-white border border-slate-200'>
+                            <p class='font-bold text-[#0d5c63] mb-1.5'>${d.icon} ${d.name}</p>
+                            <ul class='list-disc list-inside space-y-1 text-slate-600'>
+                                ${tips.map(t => `<li>${t}</li>`).join('')}
+                            </ul>
+                        </div>`;
+                });
+                html += `</div>`;
+            } else {
+                html += `
+                    <div class='p-3 rounded-xl bg-white border border-slate-200'>
+                        <p class='font-bold text-[#0d5c63] mb-1.5'>🌟 للحفاظ على تميزك:</p>
+                        <ul class='list-disc list-inside space-y-1 text-slate-600'>
+                            <li>ساعد زميلاً جديداً على التكيف، فتعليم الآخرين يرسّخ مهاراتك.</li>
+                            <li>ضع هدفاً أكبر هذا العام: شهادة احترافية، مشروع، أو مبادرة تقودها.</li>
+                        </ul>
+                    </div>`;
+            }
+
+            // 6) نقاط محددة تحتاج انتباه (إجابات نادرًا/أبدًا)
+            const lowQs = userAnswers
+                .map((s, i) => ({ s, i }))
+                .filter(x => x.s <= 2)
+                .sort((a, b) => a.s - b.s)
+                .slice(0, 3);
+            if (lowQs.length) {
+                html += `
+                    <div class='p-3 rounded-xl bg-amber-50 border border-amber-200'>
+                        <p class='font-bold text-amber-700 mb-2'>🔍 نقاط محددة تستحق انتباهك:</p>
+                        <ul class='space-y-2 text-slate-600'>
+                            ${lowQs.map(x => `
+                                <li>
+                                    <p class='text-xs text-slate-500'>«${questions[x.i]}»</p>
+                                    <p>👈 ${questionTips[x.i]}</p>
+                                </li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            // 7) خطة 7 أيام
+            const planDims = focus.length ? focus : [sorted[sorted.length - 1]];
+            const planTips = planDims.flatMap(d => (d.pct < 60 ? d.weak : d.mid)).slice(0, 3);
+            html += `
+                <div class='p-3 rounded-xl bg-[#0d5c63]/5 border border-[#0d5c63]/20'>
+                    <p class='font-bold text-[#0d5c63] mb-2'>🗓️ خطتك لأسبوع واحد:</p>
+                    <ol class='list-decimal list-inside space-y-1 text-slate-600'>
+                        <li><strong>اليوم 1–2:</strong> ${planTips[0] || 'راجع نتيجتك واختر مهارة واحدة تركز عليها.'}</li>
+                        <li><strong>اليوم 3–5:</strong> ${planTips[1] || planTips[0]}</li>
+                        <li><strong>اليوم 6–7:</strong> ${planTips[2] || 'قيّم تقدمك واكتب ما تحسّن وما تحتاج تكمله.'}</li>
+                    </ol>
+                    <p class='text-xs text-slate-500 mt-2'>💬 أعد المقياس بعد شهر وقارن نتيجتك لترى تقدمك.</p>
+                </div>
+            `;
+
+            return html;
+        }
+
         function finishAndSave() {
             document.getElementById('quiz-container').classList.add('hidden');
             document.getElementById('loading-container').classList.remove('hidden');
@@ -450,36 +684,7 @@
                 finalLevel = "تكيف ممتاز ووعي أكاديمي عالٍ";
             }
 
-            let analysisHTML = "";
-            if (finalPercentage < 60) {
-                analysisHTML = `
-                    <p class='font-bold text-amber-600 dark:text-amber-400'>📊 نسبة التكيف: ${finalPercentage}% (مستوى منخفض)</p>
-                    <p><strong>التوصيات والنصائح المخصصة لك:</strong></p>
-                    <ul class='list-disc list-inside space-y-1.5 text-slate-600 dark:text-slate-300'>
-                        <li><strong>إدارة الوقت:</strong> احرص على جدولة المهام والالتزامات وتجنب التسويف.</li>
-                        <li><strong>التواصل الداعم:</strong> استشر ذوي الخبرة أو الزملاء عند مواجهة العقبات.</li>
-                        <li><strong>بناء العلاقات:</strong> عزز تواصلك الإيجابي داخل بيئتك الأكاديمية والمهنية.</li>
-                    </ul>
-                `;
-            } else if (finalPercentage < 80) {
-                analysisHTML = `
-                    <p class='font-bold text-[#0d5c63] dark:text-[#22d3ee]'>📊 نسبة التكيف: ${finalPercentage}% (مستوى متوسط)</p>
-                    <p><strong>التوصيات والنصائح المخصصة لك:</strong></p>
-                    <ul class='list-disc list-inside space-y-1.5 text-slate-600 dark:text-slate-300'>
-                        <li><strong>تنظيم الأولويات:</strong> استثمر مهارات التخطيط وأدوات التنظيم المتقدمة.</li>
-                        <li><strong>الاستمرارية:</strong> حافظ على انتظامك واستخدم مصادر تعلم إضافية لتطوير كفاءتك.</li>
-                    </ul>
-                `;
-            } else {
-                analysisHTML = `
-                    <p class='font-bold text-emerald-600 dark:text-emerald-400'>📊 نسبة التكيف: ${finalPercentage}% (مستوى ممتاز)</p>
-                    <p><strong>التوصيات والنصائح المخصصة لك:</strong></p>
-                    <ul class='list-disc list-inside space-y-1.5 text-slate-600 dark:text-slate-300'>
-                        <li><strong>التميز القيادي:</strong> واصل تفوقك وقم بمساعدة الزملاء ومشاركتهم خبراتك.</li>
-                        <li><strong>التطوير المستمر:</strong> اربط نجاحك بمشاريع تقنية ومهنية متقدمة في مجالك.</li>
-                    </ul>
-                `;
-            }
+            let analysisHTML = buildAdvice();
 
             setRating(5);
 
