@@ -120,9 +120,10 @@
             <!-- تبديل العرض (سجلات المشاركين vs سجل الزوار) -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
                 <div class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-                    <div class="flex space-x-2 space-x-reverse">
+                    <div class="flex flex-wrap gap-2">
                         <button onclick="switchTab('quiz')" id="tab-quiz" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white">نتائج المشاركين والأقسام</button>
                         <button onclick="switchTab('visitors')" id="tab-visitors" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700">سجل الزيارات العامة (بدون تسجيل)</button>
+                        <button onclick="switchTab('security')" id="tab-security" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700">🛡️ سجل دخول اللوحة</button>
                     </div>
                     <span id="total-badge" class="bg-slate-800 text-slate-300 border border-slate-700 text-xs px-3 py-1.5 rounded-xl font-bold">0 سجلات</span>
                 </div>
@@ -159,27 +160,37 @@
             const res = await fetch(API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify(Object.assign({ pass: adminPass }, data))
+                // نرسل نوع الجهاز مع كل عملية عشان ينسجل في سجل الدخول
+                body: JSON.stringify(Object.assign({ pass: adminPass, device: navigator.userAgent.slice(0, 150) }, data))
             });
             return res.json();
         }
 
-        async function refreshData() {
-            const out = await callApi({ action: 'list' });
-            if (!out.ok) throw new Error(out.error || 'error');
-            cachedData = { results: out.results, visits: out.visits, extraHeaders: out.extraHeaders || [] };
+        // action = 'login' أول مرة (ينسجل كدخول ويوصل إشعار)، وبعدها 'list' للتحديث
+        async function refreshData(action = 'list') {
+            const out = await callApi({ action });
+            if (!out.ok) { const err = new Error(out.error || 'error'); err.info = out; throw err; }
+            cachedData = { results: out.results, visits: out.visits, security: out.security || [], extraHeaders: out.extraHeaders || [] };
             loadAdminData();
         }
 
         async function verifyPassword() {
             adminPass = document.getElementById('admin-pass').value;
             try {
-                await refreshData();
+                await refreshData('login');
                 document.getElementById('auth-box').classList.add('hidden');
                 document.getElementById('dashboard-box').classList.remove('hidden');
                 document.getElementById('logout-btn').classList.remove('hidden');
             } catch (e) {
-                alert(e.message === 'wrong_password' ? "كلمة المرور غير صحيحة!" : "تعذّر الاتصال بجدول النتائج، حاول مرة ثانية.");
+                const info = e.info || {};
+                if (e.message === 'locked') {
+                    alert(`⛔ لوحة التحكم مقفلة مؤقتاً بسبب محاولات دخول خاطئة متكررة.\nحاول بعد ${info.minutes || 15} دقيقة.`);
+                } else if (e.message === 'wrong_password') {
+                    alert(`كلمة المرور غير صحيحة!` + (info.remaining !== undefined ? `\nالمحاولات المتبقية قبل القفل: ${info.remaining}` : ''));
+                } else {
+                    alert("تعذّر الاتصال بجدول النتائج، حاول مرة ثانية.");
+                }
+                adminPass = "";
                 document.getElementById('admin-pass').value = "";
             }
         }
@@ -195,14 +206,40 @@
 
         function switchTab(tab) {
             currentTab = tab;
-            if (tab === 'quiz') {
-                document.getElementById('tab-quiz').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white";
-                document.getElementById('tab-visitors').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
-            } else {
-                document.getElementById('tab-visitors').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white";
-                document.getElementById('tab-quiz').className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
-            }
+            const on = "px-4 py-2 rounded-xl text-xs font-bold transition bg-emerald-700 text-white";
+            const off = "px-4 py-2 rounded-xl text-xs font-bold transition bg-slate-800 text-slate-300 hover:bg-slate-700";
+            ['quiz', 'visitors', 'security'].forEach(t => {
+                document.getElementById('tab-' + t).className = t === tab ? on : off;
+            });
             loadAdminData();
+        }
+
+        // عرض سجل دخول لوحة التحكم
+        function renderSecurityLog(container) {
+            const log = cachedData.security || [];
+            document.getElementById('total-badge').innerText = `${log.length} عملية مسجلة`;
+            if (!log.length) {
+                container.innerHTML = `<p class='text-sm text-slate-400 text-center py-8 bg-slate-950/50 rounded-xl border border-slate-800'>لا توجد عمليات مسجلة حتى الآن.</p>`;
+                return;
+            }
+            const fails = log.filter(x => /خاطئة|مرفوض/.test(x.status)).length;
+            let html = `<div class='bg-slate-950 border border-slate-800 p-3 rounded-xl text-xs text-slate-300 flex flex-wrap gap-4'>
+                <span>✅ ناجحة: <strong class='text-emerald-300'>${log.length - fails}</strong></span>
+                <span>❌ فاشلة/مرفوضة: <strong class='text-rose-300'>${fails}</strong></span>
+            </div>`;
+            log.forEach(x => {
+                const bad = /خاطئة|مرفوض/.test(x.status);
+                html += `
+                    <div class='bg-slate-950 border ${bad ? 'border-rose-800' : 'border-slate-800'} p-3 rounded-xl'>
+                        <div class='flex justify-between items-center gap-2'>
+                            <p class='font-bold text-sm ${bad ? 'text-rose-300' : 'text-emerald-300'}'>${esc(x.status)}</p>
+                            <span class='text-[10px] text-slate-500'>${esc(x.time)}</span>
+                        </div>
+                        <p class='text-xs text-slate-300 mt-1'>العملية: ${esc(x.action)}</p>
+                        <p class='text-[11px] text-slate-500 mt-0.5 break-all'>الجهاز: ${esc(x.device)}</p>
+                    </div>`;
+            });
+            container.innerHTML = html;
         }
 
         function loadAdminData() {
@@ -228,6 +265,11 @@
             renderCharts(st);
 
             let container = document.getElementById('table-container');
+
+            if (currentTab === 'security') {
+                renderSecurityLog(container);
+                return;
+            }
 
             if (currentTab === 'quiz') {
                 document.getElementById('total-badge').innerText = `${quizRecords.length} مشاركين مكتملين`;
@@ -293,6 +335,10 @@
         }
 
         async function clearAllRecords() {
+            if (currentTab === 'security') {
+                alert("🛡️ سجل الدخول محمي ولا يمكن مسحه من لوحة التحكم (حتى لا يقدر أي متسلل يخفي آثاره).");
+                return;
+            }
             if (confirm("تحذير: هل أنت متأكد من مسح كافة السجلات الحالية نهائياً؟")) {
                 try {
                     await callApi({ action: 'clear', type: currentTab === 'quiz' ? 'quiz' : 'visitor' });
