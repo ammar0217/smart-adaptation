@@ -923,7 +923,12 @@
                 score: finalPercentage + '%',
                 level: finalLevel,
                 rating: selectedRating + ' ⭐ (من 5)',
-                date: new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA')
+                date: new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA'),
+                // تفاصيل إضافية لتقارير لوحة التحكم
+                dimNames: dimensions.map(d => d.name),
+                dims: dimensions.map(d => Math.round(d.qs.reduce((a, i) => a + (userAnswers[i] || 0), 0) / (d.qs.length * 5) * 100)),
+                questions: questions,
+                answers: userAnswers.map(s => (optionsList.find(o => o.score === s) || {}).text || '')
             };
 
             try {
