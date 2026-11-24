@@ -116,7 +116,7 @@
         async function refreshData() {
             const out = await callApi({ action: 'list' });
             if (!out.ok) throw new Error(out.error || 'error');
-            cachedData = { results: out.results, visits: out.visits };
+            cachedData = { results: out.results, visits: out.visits, extraHeaders: out.extraHeaders || [] };
             loadAdminData();
         }
 
@@ -247,42 +247,127 @@
             }
         }
 
+        // ===== تقرير Excel الشامل: ملخص + محاور + أسئلة + مشاركين + زيارات =====
+        const ANSWER_SCORES = { "دائمًا": 5, "غالبًا": 4, "أحيانًا": 3, "نادرًا": 2, "أبدًا": 1 };
+        const ANSWER_ORDER = ["دائمًا", "غالبًا", "أحيانًا", "نادرًا", "أبدًا"];
+
+        const num = v => { const n = parseFloat(String(v).replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
+        const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
+        const pct = (part, total) => total ? Math.round(part / total * 1000) / 10 + '%' : '0%';
+
+        function countBy(list, keyFn) {
+            const m = {};
+            list.forEach(x => { const k = keyFn(x) || 'غير محدد'; m[k] = (m[k] || 0) + 1; });
+            return Object.entries(m).sort((a, b) => b[1] - a[1]);
+        }
+
+        function makeSheet(rows, widths) {
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            ws['!cols'] = widths.map(w => ({ wch: w }));
+            return ws;
+        }
+
         function exportToExcel() {
-            let quizRecords = cachedData.results;
-            let visitorsLog = cachedData.visits;
+            const results = cachedData.results;
+            const visits = cachedData.visits;
+            const extraHeaders = cachedData.extraHeaders || [];
 
-            let workbook = XLSX.utils.book_new();
-
-            if (quizRecords.length > 0) {
-                let quizData = quizRecords.map((rec, index) => ({
-                    "م": index + 1,
-                    "اسم المشارك": rec.name,
-                    "المجال والتفاصيل": rec.profile,
-                    "نسبة التكيف": rec.score,
-                    "التقييم العام": rec.level,
-                    "تقييم المنصة": rec.rating || 'غير متوفر',
-                    "وقت الاختبار": rec.date
-                }));
-                let ws1 = XLSX.utils.json_to_sheet(quizData);
-                XLSX.utils.book_append_sheet(workbook, ws1, "نتائج المشاركين");
-            }
-
-            if (visitorsLog.length > 0) {
-                let visitorData = visitorsLog.map((vis, index) => ({
-                    "م": index + 1,
-                    "بيانات الجهاز/المتصفح": vis.device,
-                    "وقت الزيارة": vis.time
-                }));
-                let ws2 = XLSX.utils.json_to_sheet(visitorData);
-                XLSX.utils.book_append_sheet(workbook, ws2, "سجل الزوار");
-            }
-
-            if (workbook.SheetNames.length === 0) {
+            if (!results.length && !visits.length) {
                 alert("لا توجد بيانات كافية لتصديرها حالياً.");
                 return;
             }
 
-            XLSX.writeFile(workbook, "University_Adaptation_Comprehensive_Report.xlsx");
+            // أعمدة المحاور والأسئلة (حسب عناوين جدول Google)
+            const dimCols = [], qCols = [];
+            extraHeaders.forEach((h, i) => {
+                if (h.startsWith('محور: ')) dimCols.push({ i, name: h.replace('محور: ', '') });
+                else if (/^س\d+: /.test(h)) qCols.push({ i, text: h.replace(/^س\d+: /, ''), n: h.match(/^س(\d+)/)[1] });
+            });
+            const detailed = results.filter(r => r.extra && r.extra.some(v => v !== ''));
+
+            const scores = results.map(r => num(r.score)).filter(v => v !== null);
+            const ratings = results.map(r => num(r.rating)).filter(v => v !== null);
+            const fieldOf = r => ((r.profile || '').match(/المجال: ([^-(]+)/) || [])[1]?.trim();
+            const majorOf = r => ((r.profile || '').match(/التخصص: (.+)$/) || [])[1]?.trim();
+            const today = new Date().toLocaleDateString('ar-SA') + ' - ' + new Date().toLocaleTimeString('ar-SA');
+
+            const wb = XLSX.utils.book_new();
+            wb.Workbook = { Views: [{ RTL: true }] }; // اتجاه الملف من اليمين لليسار
+
+            // 1) الملخص العام
+            const s = [
+                ["تقرير منصة التكيف الجامعي الذكية — الملخص العام"],
+                ["تاريخ التقرير", today],
+                [],
+                ["📊 الإحصائيات العامة", ""],
+                ["عدد المشاركين المكتملين", results.length],
+                ["عدد الزيارات", visits.length],
+                ["نسبة إكمال الاستبيان من الزيارات", pct(results.length, visits.length)],
+                ["متوسط نسبة التكيف", avg(scores) + '%'],
+                ["أعلى نسبة تكيف", scores.length ? Math.max(...scores) + '%' : '-'],
+                ["أدنى نسبة تكيف", scores.length ? Math.min(...scores) + '%' : '-'],
+                ["متوسط تقييم المنصة (من 5)", avg(ratings)],
+                [],
+                ["🏅 توزيع المستويات", "العدد", "النسبة"],
+                ...countBy(results, r => r.level).map(([k, c]) => [k, c, pct(c, results.length)]),
+                [],
+                ["⭐ توزيع تقييم المنصة", "العدد", "النسبة"],
+                ...[5, 4, 3, 2, 1].map(n => { const c = ratings.filter(r => r === n).length; return [n + ' نجوم', c, pct(c, ratings.length)]; }),
+                [],
+                ["👥 توزيع المجالات", "العدد", "النسبة"],
+                ...countBy(results, fieldOf).map(([k, c]) => [k, c, pct(c, results.length)])
+            ];
+            const majors = countBy(results.filter(majorOf), majorOf);
+            if (majors.length) {
+                s.push([], ["🎓 توزيع التخصصات الجامعية", "العدد", "متوسط التكيف"]);
+                majors.forEach(([k, c]) => {
+                    const sc = results.filter(r => majorOf(r) === k).map(r => num(r.score)).filter(v => v !== null);
+                    s.push([k, c, avg(sc) + '%']);
+                });
+            }
+            XLSX.utils.book_append_sheet(wb, makeSheet(s, [38, 22, 14]), "الملخص العام");
+
+            // 2) تحليل المحاور
+            if (dimCols.length && detailed.length) {
+                const d = [["المحور", "متوسط النسبة", "أعلى", "أدنى", "عدد (نقطة قوة ≥80%)", "عدد (يحتاج تطوير <60%)"]];
+                dimCols.forEach(col => {
+                    const vals = detailed.map(r => num(r.extra[col.i])).filter(v => v !== null);
+                    d.push([col.name, avg(vals) + '%', vals.length ? Math.max(...vals) + '%' : '-', vals.length ? Math.min(...vals) + '%' : '-',
+                        vals.filter(v => v >= 80).length, vals.filter(v => v < 60).length]);
+                });
+                d.push([], ["* مبني على " + detailed.length + " مشارك لديهم إجابات تفصيلية"]);
+                XLSX.utils.book_append_sheet(wb, makeSheet(d, [36, 14, 10, 10, 20, 22]), "تحليل المحاور");
+            }
+
+            // 3) تحليل الأسئلة
+            if (qCols.length && detailed.length) {
+                const q = [["#", "العبارة", "متوسط الدرجة (من 5)", ...ANSWER_ORDER, "نسبة الإجابات الإيجابية (دائمًا + غالبًا)"]];
+                qCols.forEach(col => {
+                    const ans = detailed.map(r => r.extra[col.i]).filter(Boolean);
+                    const counts = ANSWER_ORDER.map(a => ans.filter(x => x === a).length);
+                    q.push([col.n, col.text, avg(ans.map(a => ANSWER_SCORES[a] || 0).filter(Boolean)), ...counts, pct(counts[0] + counts[1], ans.length)]);
+                });
+                XLSX.utils.book_append_sheet(wb, makeSheet(q, [5, 70, 18, 9, 9, 9, 9, 9, 30]), "تحليل الأسئلة");
+            }
+
+            // 4) المشاركين بالتفصيل (كل شخص وإجاباته)
+            if (results.length) {
+                const head = ["م", "الاسم", "المجال والتفاصيل", "نسبة التكيف", "المستوى", "تقييم المنصة", "الوقت",
+                    ...dimCols.map(c => c.name), ...qCols.map(c => "س" + c.n + ": " + c.text)];
+                const rows = results.map((r, idx) => [idx + 1, r.name, r.profile, r.score, r.level, r.rating, r.date,
+                    ...dimCols.map(c => (r.extra || [])[c.i] || ''), ...qCols.map(c => (r.extra || [])[c.i] || '')]);
+                XLSX.utils.book_append_sheet(wb, makeSheet([head, ...rows],
+                    [5, 20, 40, 11, 28, 14, 24, ...dimCols.map(() => 16), ...qCols.map(() => 22)]), "المشاركين وإجاباتهم");
+            }
+
+            // 5) الزيارات
+            if (visits.length) {
+                const v = [["م", "وقت الزيارة", "الجهاز/المتصفح"], ...visits.map((x, i) => [i + 1, x.time, x.device])];
+                XLSX.utils.book_append_sheet(wb, makeSheet(v, [5, 26, 70]), "سجل الزيارات");
+            }
+
+            const d = new Date();
+            XLSX.writeFile(wb, `تقرير مستشار التكيف ${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}.xlsx`);
         }
     </script>
 </body>
