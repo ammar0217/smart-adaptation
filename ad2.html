@@ -310,6 +310,8 @@
         const PALETTE = [C.teal, C.gold, C.sky, C.violet, C.green, C.amber, C.red, C.slate];
 
         const num = v => { const n = parseFloat(String(v).replace(/[^\d.]/g, '')); return isNaN(n) ? null : n; };
+        // التقييم محفوظ كنص مثل "5 ⭐ (من 5)"، فناخذ أول رقم فقط
+        const ratingNum = v => { const m = String(v ?? '').match(/\d+/); return m ? +m[0] : null; };
         const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
         const pctNum = (part, total) => total ? Math.round(part / total * 1000) / 10 : 0;
         const levelColor = l => /ممتاز/.test(l) ? C.green : /متوسط/.test(l) ? C.gold : C.red;
@@ -332,7 +334,7 @@
             });
             const detailed = results.filter(r => r.extra && r.extra.some(v => v !== ''));
             const scores = results.map(r => num(r.score)).filter(v => v !== null);
-            const ratings = results.map(r => num(r.rating)).filter(v => v !== null);
+            const ratings = results.map(r => ratingNum(r.rating)).filter(v => v !== null);
             const fieldOf = r => ((r.profile || '').match(/المجال: ([^-(]+)/) || [])[1]?.trim();
             const majorOf = r => ((r.profile || '').match(/التخصص: (.+)$/) || [])[1]?.trim();
 
@@ -382,11 +384,12 @@
             const grid = theme === 'light' ? '#e2e8f0' : '#1e293b';
             const base = (extra) => Object.assign({
                 responsive: theme !== 'light', maintainAspectRatio: false, animation: theme !== 'light',
-                plugins: { legend: { rtl: true, labels: { color: text, font: { size: 12 } } }, tooltip: { rtl: true } }
+                plugins: { legend: { rtl: true, labels: { color: text, font: { size: theme === 'light' ? 14 : 12 } } }, tooltip: { rtl: true } }
             }, extra || {});
+            const fs = theme === 'light' ? 14 : 12;
             const axes = (horizontal, maxVal) => ({
-                x: { ticks: { color: text }, grid: { color: grid }, max: horizontal ? maxVal : undefined, beginAtZero: true },
-                y: { ticks: { color: text }, grid: { color: grid }, max: horizontal ? undefined : maxVal, beginAtZero: true }
+                x: { ticks: { color: text, font: { size: fs } }, grid: { color: grid }, max: horizontal ? maxVal : undefined, beginAtZero: true },
+                y: { ticks: { color: text, font: { size: fs } }, grid: { color: grid }, max: horizontal ? undefined : maxVal, beginAtZero: true }
             });
             return {
                 levels: { type: 'doughnut', data: { labels: st.levels.map(l => l[0]), datasets: [{ data: st.levels.map(l => l[1]), backgroundColor: st.levels.map(l => levelColor(l[0])), borderWidth: 0 }] },
@@ -629,7 +632,7 @@
                     const ansFill = { "دائمًا": X.green, "غالبًا": X.green, "أحيانًا": X.yellow, "نادرًا": X.red, "أبدًا": X.red };
                     st.results.forEach((rec, idx) => {
                         const ex = rec.extra || [];
-                        const vals = [idx + 1, rec.name, rec.profile, (num(rec.score) ?? 0) / 100, rec.level, num(rec.rating) ?? '', rec.date,
+                        const vals = [idx + 1, rec.name, rec.profile, (num(rec.score) ?? 0) / 100, rec.level, ratingNum(rec.rating) ?? '', rec.date,
                             ...st.dimCols.map(c => { const v = num(ex[c.i]); return v === null ? '' : v / 100; }),
                             ...st.qCols.map(c => ex[c.i] || '')];
                         const row = dataRow(p, idx + 2, vals, false);
