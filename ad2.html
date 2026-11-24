@@ -40,6 +40,9 @@
 
         <!-- لوحة التحكم -->
         <div id="dashboard-box" class="hidden space-y-6">
+
+            <!-- تنبيه الأمان بعد الدخول -->
+            <div id="security-banner"></div>
             
             <!-- بطاقات الإحصائيات العامة -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -171,7 +174,29 @@
             const out = await callApi({ action });
             if (!out.ok) { const err = new Error(out.error || 'error'); err.info = out; throw err; }
             cachedData = { results: out.results, visits: out.visits, security: out.security || [], extraHeaders: out.extraHeaders || [] };
+            if (out.securitySummary) renderSecurityBanner(out.securitySummary);
             loadAdminData();
+        }
+
+        // تنبيه لصاحب اللوحة بعد الدخول: المحاولات الفاشلة منذ آخر دخول ناجح
+        function renderSecurityBanner(s) {
+            const box = document.getElementById('security-banner');
+            const last = s.lastLogin ? `آخر دخول ناجح قبل هذا: ${esc(s.lastLogin.time)}` : 'هذا أول دخول مسجل للوحة.';
+            if (s.failed > 0) {
+                box.className = 'bg-rose-950/60 border border-rose-700 text-rose-100 rounded-2xl p-4 shadow-lg';
+                box.innerHTML = `
+                    <div class='flex flex-col sm:flex-row sm:items-center justify-between gap-3'>
+                        <div>
+                            <p class='font-bold'>🚨 انتبه: صار <span class='text-rose-300'>${s.failed}</span> ${s.failed === 1 ? 'محاولة دخول فاشلة' : 'محاولات دخول فاشلة'} منذ آخر دخول لك</p>
+                            <p class='text-xs text-rose-200/80 mt-1'>آخرها: ${esc(s.lastFail.time)} — من جهاز: ${esc(s.lastFail.device)}</p>
+                            <p class='text-[11px] text-rose-200/60 mt-1'>${last}</p>
+                        </div>
+                        <button onclick="switchTab('security'); document.getElementById('table-container').scrollIntoView({behavior:'smooth'})" class='shrink-0 bg-rose-700 hover:bg-rose-600 px-4 py-2 rounded-xl text-xs font-bold'>عرض سجل الدخول</button>
+                    </div>`;
+            } else {
+                box.className = 'bg-emerald-950/50 border border-emerald-800 text-emerald-100 rounded-2xl p-4';
+                box.innerHTML = `<p class='text-sm font-semibold'>✅ لا توجد محاولات دخول مشبوهة منذ آخر دخول لك.</p><p class='text-[11px] text-emerald-200/70 mt-1'>${last}</p>`;
+            }
         }
 
         async function verifyPassword() {
@@ -182,11 +207,11 @@
                 document.getElementById('dashboard-box').classList.remove('hidden');
                 document.getElementById('logout-btn').classList.remove('hidden');
             } catch (e) {
-                const info = e.info || {};
+                // رسائل عامة عن قصد: ما نكشف عدد المحاولات ولا مدة القفل
                 if (e.message === 'locked') {
-                    alert(`⛔ لوحة التحكم مقفلة مؤقتاً بسبب محاولات دخول خاطئة متكررة.\nحاول بعد ${info.minutes || 15} دقيقة.`);
-                } else if (e.message === 'wrong_password') {
-                    alert(`كلمة المرور غير صحيحة!` + (info.remaining !== undefined ? `\nالمحاولات المتبقية قبل القفل: ${info.remaining}` : ''));
+                    alert("⛔ تم إيقاف الدخول مؤقتاً. حاول لاحقاً.");
+                } else if (e.message === 'invalid' || e.message === 'wrong_password') {
+                    alert("بيانات الدخول غير صحيحة.");
                 } else {
                     alert("تعذّر الاتصال بجدول النتائج، حاول مرة ثانية.");
                 }
